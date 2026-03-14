@@ -166,36 +166,7 @@ export default function Login({ onLogin }: Props) {
           </form>
         </motion.div>
 
-        {/* Demo credentials */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mt-6 rounded-xl p-4 border"
-          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-        >
-          <p className="text-xs font-semibold mb-3 font-dm" style={{ color: 'var(--muted)' }}>
-            👋 Acesso Administrativo Master:
-          </p>
-          <div className="space-y-2">
-            {[
-              ['valloragencia@gmail.com', 'Deus@Fiel@1806', 'Administrador'],
-            ].map(([e, s, role]) => (
-              <button
-                key={e}
-                type="button"
-                onClick={() => { setEmail(e); setSenha(s); setError('') }}
-                className="w-full text-left px-3 py-2 rounded-lg text-xs font-dm transition-colors"
-                style={{ background: 'var(--surface2)', color: 'var(--text)' }}
-              >
-                <span style={{ color: 'var(--accent)' }}>{e}</span>
-                <span style={{ color: 'var(--muted)' }}> / {s}</span>
-                <span className="ml-2 text-xs" style={{ color: 'var(--muted)' }}>— {role}</span>
-              </button>
-            ))}
-          </div>
-        </motion.div>
-      </motion.div>
+        </form>
     </div>
   )
 }
