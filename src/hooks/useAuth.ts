@@ -10,15 +10,15 @@ export function useAuth() {
     return s ? (getUsers().find(u => u.id === s.userId) ?? null) : null
   })
 
-  const login = useCallback((login: string, senha: string): boolean => {
+  const login = useCallback((email: string, senha: string): boolean => {
     const users = getUsers()
-    const found = users.find(u => u.login === login && u.senha === senha && u.ativo)
+    const found = users.find(u => u.email === email && u.senha === senha && u.ativo)
     if (!found) return false
     const s: Session = {
       userId: found.id,
       nome: found.nome,
+      email: found.email,
       role: found.role,
-      loginAt: Date.now(),
     }
     setSession(s)
     setSessionState(s)

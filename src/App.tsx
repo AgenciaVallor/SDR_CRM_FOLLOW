@@ -108,11 +108,14 @@ function AppInner() {
       case 'whatsapp':
         return <WhatsApp user={user} isAdmin={isAdmin} calls={calls} />
       case 'ranking':
-        return isAdmin ? <Ranking user={user} /> : null
+        if (!isAdmin) { setTimeout(() => setPage('dashboard'), 0); return null; }
+        return <Ranking user={user} />
       case 'usuarios':
-        return isAdmin ? <Usuarios onReload={reloadCalls} /> : null
+        if (!isAdmin) { setTimeout(() => setPage('dashboard'), 0); return null; }
+        return <Usuarios onReload={reloadCalls} />
       case 'configuracoes':
-        return isAdmin ? <Configuracoes /> : null
+        if (!isAdmin) { setTimeout(() => setPage('dashboard'), 0); return null; }
+        return <Configuracoes />
       default:
         return <Dashboard user={user} isAdmin={isAdmin} calls={calls} pipelineValue={pipelineValue} alerts={alerts} setPage={setPage} />
     }

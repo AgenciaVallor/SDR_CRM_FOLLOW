@@ -155,9 +155,9 @@ export default function Ligacoes({ calls, user, isAdmin, onNewCall }: Props) {
             onChange={e => setFilterOp(e.target.value)}
             className="text-sm px-3 py-2 rounded-lg"
           >
-            <option value="">Todos os operadores</option>
-            {users.filter(u => u.role === 'vendedor').map(u => (
-              <option key={u.id} value={u.id}>{u.nome}</option>
+            <option value="">Todos os colaboradores</option>
+            {users.map(u => (
+              <option key={u.id} value={u.id}>{u.nome} ({u.role})</option>
             ))}
           </select>
         )}

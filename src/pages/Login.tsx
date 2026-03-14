@@ -4,11 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Phone, Lock, User, Eye, EyeOff } from 'lucide-react'
 
 interface Props {
-  onLogin: (login: string, senha: string) => boolean
+  onLogin: (email: string, senha: string) => boolean
 }
 
 export default function Login({ onLogin }: Props) {
-  const [login, setLogin] = useState('')
+  const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState('')
@@ -20,9 +20,9 @@ export default function Login({ onLogin }: Props) {
     setLoading(true)
     setError('')
     await new Promise(r => setTimeout(r, 300))
-    const ok = onLogin(login, senha)
+    const ok = onLogin(email, senha)
     if (!ok) {
-      setError('Login ou senha inválidos. Verifique suas credenciais.')
+      setError('Usuário ou senha incorretos.')
       setShaking(true)
       setTimeout(() => setShaking(false), 600)
     }
@@ -105,12 +105,13 @@ export default function Login({ onLogin }: Props) {
             <div className="relative">
               <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
               <input
-                value={login}
-                onChange={e => setLogin(e.target.value)}
-                placeholder="Seu login"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="Seu e-mail"
                 className="w-full pl-9 pr-4 py-3 text-sm"
                 required
-                autoComplete="username"
+                autoComplete="email"
+                type="email"
               />
             </div>
 
@@ -174,22 +175,20 @@ export default function Login({ onLogin }: Props) {
           style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
         >
           <p className="text-xs font-semibold mb-3 font-dm" style={{ color: 'var(--muted)' }}>
-            👋 Credenciais de demonstração:
+            👋 Acesso Administrativo Master:
           </p>
           <div className="space-y-2">
             {[
-              ['admin',  'admin123',  'Administrador'],
-              ['joao',   'vallor123', 'Vendedor'],
-              ['ana',    'vallor123', 'Vendedora'],
-              ['marcos', 'vallor123', 'Vendedor'],
-            ].map(([l, s, role]) => (
+              ['valloragencia@gmail.com', 'Deus@Fiel@1806', 'Administrador'],
+            ].map(([e, s, role]) => (
               <button
-                key={l}
-                onClick={() => { setLogin(l); setSenha(s); setError('') }}
+                key={e}
+                type="button"
+                onClick={() => { setEmail(e); setSenha(s); setError('') }}
                 className="w-full text-left px-3 py-2 rounded-lg text-xs font-dm transition-colors"
                 style={{ background: 'var(--surface2)', color: 'var(--text)' }}
               >
-                <span style={{ color: 'var(--accent)' }}>{l}</span>
+                <span style={{ color: 'var(--accent)' }}>{e}</span>
                 <span style={{ color: 'var(--muted)' }}> / {s}</span>
                 <span className="ml-2 text-xs" style={{ color: 'var(--muted)' }}>— {role}</span>
               </button>

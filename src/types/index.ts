@@ -3,7 +3,7 @@
 export interface User {
   id: string
   nome: string
-  login: string
+  email: string
   senha: string
   role: 'admin' | 'vendedor'
   avatar: string
@@ -167,8 +167,8 @@ export interface RegistroSemanal {
 export interface Session {
   userId: string
   nome: string
+  email: string
   role: 'admin' | 'vendedor'
-  loginAt: number
 }
 
 export interface CadenciaTemplate {

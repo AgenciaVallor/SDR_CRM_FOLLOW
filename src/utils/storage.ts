@@ -43,12 +43,47 @@ function removeSessionItem(key: string): void {
   sessionStorage.removeItem(key)
 }
 
+const MASTER_ADMIN: User = {
+  id: 'u-master',
+  nome: 'Vallor Admin',
+  email: 'valloragencia@gmail.com',
+  senha: 'Deus@Fiel@1806',
+  role: 'admin',
+  avatar: '#f0c040',
+  metaDiariaLigacoes: 50,
+  metaDiariaReunioes: 5,
+  ativo: true,
+  criadoEm: Date.now()
+}
+
 // ─── Users ────────────────────────────────────────────────────────────────────
-export const getUsers = (): User[] => getItem<User>(KEYS.users)
+export const getUsers = (): User[] => {
+  const users = getItem<User>(KEYS.users)
+  const masterExists = users.some(u => u.email === 'valloragencia@gmail.com')
+  if (!masterExists) {
+    const updatedUsers = [...users, MASTER_ADMIN]
+    setItem(KEYS.users, updatedUsers)
+    return updatedUsers
+  }
+  return users
+}
 export const setUsers = (users: User[]): void => setItem(KEYS.users, users)
 export const addUser = (u: User): void => setUsers([...getUsers(), u])
 export const updateUser = (id: string, patch: Partial<User>): void => {
-  setUsers(getUsers().map(u => u.id === id ? { ...u, ...patch } : u))
+  setUsers(getUsers().map(u => {
+    if (u.id === id) {
+      // Protege o Master Admin de alterações indevidas
+      if (id === 'u-master') {
+        const safePatch = { ...patch }
+        delete safePatch.role
+        delete safePatch.email
+        delete safePatch.ativo
+        return { ...u, ...safePatch }
+      }
+      return { ...u, ...patch }
+    }
+    return u
+  }))
 }
 export const getUserById = (id: string): User | undefined => getUsers().find(u => u.id === id)
 
