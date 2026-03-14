@@ -120,7 +120,7 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
       leadId: leadId ?? null,
       timestamp: ts,
       diaSemana: now.getDay() as 0|1|2|3|4|5|6,
-      semana: weekKey,
+      semanaKey: weekKey,
       mes: format(now, 'yyyy-MM'),
     }
 

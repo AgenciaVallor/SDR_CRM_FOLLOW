@@ -69,7 +69,7 @@ export function useCalls(userId?: string, isAdmin?: boolean) {
   }, [getStatsForDay])
 
   const getWeeklyStats = useCallback((uid: string, weekKey: string) => {
-    const all = getCalls().filter(c => c.operadorId === uid && c.semana === weekKey)
+    const all = getCalls().filter(c => c.operadorId === uid && c.semanaKey === weekKey)
     const reunioes = all.filter(c => c.reuniaoAgendada).length
     return {
       totalLigacoes: all.length,

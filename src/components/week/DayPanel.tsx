@@ -5,7 +5,7 @@ import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { X } from 'lucide-react'
 import { Call } from '../../types'
-import { DIAS_NOMES } from '../../utils/formatters'
+import { DIAS_NOMES } from '../../utils/constants'
 
 interface Props {
   dateStr: string
@@ -63,7 +63,7 @@ export function DayPanel({ dateStr, diaSemana, stats, nota, onClose, onRegisterC
         <div className="p-5 border-b flex items-start justify-between" style={{ borderColor: 'var(--border)' }}>
           <div>
             <h2 className="font-syne font-black text-xl capitalize" style={{ color: 'var(--text)' }}>
-              {DIAS_NOMES[diaSemana] || format(parseISO(dateStr), 'EEEE', { locale: ptBR })}
+              {DIAS_NOMES[diaSemana as keyof typeof DIAS_NOMES] || format(parseISO(dateStr), 'EEEE', { locale: ptBR })}
             </h2>
             <p className="text-sm font-dm" style={{ color: 'var(--muted)' }}>
               {format(parseISO(dateStr), "dd 'de' MMMM", { locale: ptBR })}

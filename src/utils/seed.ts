@@ -22,7 +22,7 @@ const USERS: User[] = [
   {
     id: 'u_admin',
     nome: 'Administrador',
-    login: 'admin',
+    email: 'admin@valloragencia.com',
     senha: 'admin123',
     role: 'admin',
     avatar: '#f0c040',
@@ -34,7 +34,7 @@ const USERS: User[] = [
   {
     id: 'u_joao',
     nome: 'João Silva',
-    login: 'joao',
+    email: 'joao@valloragencia.com',
     senha: 'vallor123',
     role: 'vendedor',
     avatar: '#4080f0',
@@ -46,7 +46,7 @@ const USERS: User[] = [
   {
     id: 'u_ana',
     nome: 'Ana Costa',
-    login: 'ana',
+    email: 'ana@valloragencia.com',
     senha: 'vallor123',
     role: 'vendedor',
     avatar: '#8050d0',
@@ -58,7 +58,7 @@ const USERS: User[] = [
   {
     id: 'u_marcos',
     nome: 'Marcos Oliveira',
-    login: 'marcos',
+    email: 'marcos@valloragencia.com',
     senha: 'vallor123',
     role: 'vendedor',
     avatar: '#e05a30',
@@ -131,7 +131,7 @@ function makeCall(
     reuniaoAgendada: reuniao,
     reuniaoData: reuniao ? format(addDays(new Date(), 1), 'yyyy-MM-dd') : null,
     reuniaoHora: reuniao ? '14:00' : null,
-    reuniaoLocal: ('meet' as MeetingLocal) || null,
+    reuniaoLocal: 'meet',
     anotacao,
     checklist: {
       apresentouProposta:   checklist.apresentouProposta   ?? false,

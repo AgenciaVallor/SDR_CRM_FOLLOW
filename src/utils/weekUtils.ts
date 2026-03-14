@@ -9,7 +9,7 @@ import {
   parseISO,
   startOfDay,
   endOfDay,
-  isToday,
+  isToday as isTodayFns,
   isThisISOWeek,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -82,9 +82,17 @@ export function getWeekDates(weekKey: string): Array<{ dia: string; date: string
   }))
 }
 
-export function isTodayDate(dateStr: string): boolean {
+export function isToday(dateStr: string): boolean {
   try {
-    return isToday(parseISO(dateStr))
+    return isTodayFns(parseISO(dateStr))
+  } catch {
+    return false
+  }
+}
+
+export function isFuture(dateStr: string): boolean {
+  try {
+    return startOfDay(parseISO(dateStr)).getTime() > startOfDay(new Date()).getTime()
   } catch {
     return false
   }
