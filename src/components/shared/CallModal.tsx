@@ -46,7 +46,7 @@ const CHECKLIST_ITEMS: { key: keyof ChecklistCall; label: string }[] = [
 ]
 
 export default function CallModal({ open, onClose, onSave, userId, userName, todayStats, prefill }: Props) {
-  const { addToast } = useToast()
+  const { success, fire } = useToast()
 
   const [nome, setNome] = useState(prefill?.nome ?? '')
   const [numero, setNumero] = useState(prefill?.numero ?? '')
@@ -130,13 +130,13 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
     const newReunioes = (todayStats?.reunioes ?? 0) + (reuniao ? 1 : 0)
 
     if (newLigacoes === 50) {
-      addToast(`🏆 META DO DIA BATIDA! 50 ligações!`, 'success', 6000)
+      fire(`META DE LIGAÇÕES BATIDA! 50 ligações!`)
     } else if (reuniao && newReunioes === 5) {
-      addToast(`🔥 5 REUNIÕES! Você destruiu a meta hoje!`, 'success', 6000)
+      fire(`5 REUNIÕES AGENDADAS META BATIDA!`)
     } else if (reuniao) {
-      addToast(`🎉 Reunião agendada para ${reuniaoData} às ${reuniaoHora}! ${newLigacoes}/50 hoje • ${newReunioes}/5 reuniões`, 'success')
+      success(`🎉 Reunião agendada para ${reuniaoData} às ${reuniaoHora}! ${newLigacoes}/50 hoje • ${newReunioes}/5 reuniões`)
     } else {
-      addToast(`✅ Ligação registrada! ${newLigacoes}/50 hoje • ${newReunioes}/5 reuniões`, 'success')
+      success(`✅ Ligação registrada! ${newLigacoes}/50 hoje • ${newReunioes}/5 reuniões`)
     }
 
     handleClose()
@@ -248,14 +248,11 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
 
         {/* === ANOTAÇÃO === */}
         <section
-          className="rounded-xl p-4 border"
-          style={{ borderColor: errors.anotacao ? 'var(--red)' : '#f0c04040', background: 'rgba(240,192,64,0.03)' }}
+          className="rounded-xl p-4 transition-all"
+          style={{ borderColor: errors.anotacao ? 'var(--red)' : '#f0c04040', background: 'rgba(240,192,64,0.03)', border: '1px solid', boxShadow: errors.anotacao ? '0 0 0 1px var(--red)' : 'none' }}
         >
           <div className="flex items-center justify-between mb-2">
             <Label noMargin>📝 ANOTAÇÃO DA LIGAÇÃO</Label>
-            {status === 'atendida' && (
-              <span className="text-xs" style={{ color: 'var(--red)' }}>* obrigatório</span>
-            )}
           </div>
           <textarea
             value={anotacao}
@@ -264,12 +261,20 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
               ? 'O que aconteceu nessa ligação? Ex: "Lead demonstrou interesse no plano mensal. Tem dores de conversão no Meta. Pediu proposta por email."'
               : 'Anotações opcionais sobre a ligação...'
             }
-            rows={4}
-            className="w-full text-sm resize-none"
-            style={{ borderColor: errors.anotacao ? 'var(--red)' : 'var(--border)' }}
+            className="w-full text-sm resize-none focus:outline-none focus:ring-1 focus:ring-accent rounded-lg p-3"
+            style={{ 
+              borderColor: errors.anotacao ? 'var(--red)' : 'var(--border)',
+              minHeight: '110px',
+              background: 'var(--surface2)',
+              color: 'var(--text)'
+            }}
           />
           <div className="flex items-center justify-between mt-1">
-            <p className="text-xs" style={{ color: 'var(--red)' }}>{errors.anotacao ?? ''}</p>
+            <p className="text-xs" style={{ color: 'var(--orange)' }}>
+              {status === 'atendida' ? 'Obrigatória se Atendida com mínimo 20 chars' : ''}
+              <br/>
+              <span className="text-red-500">{errors.anotacao ?? ''}</span>
+            </p>
             <p className="text-xs" style={{ color: 'var(--muted)' }}>{anotacao.length}/500</p>
           </div>
         </section>

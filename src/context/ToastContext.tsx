@@ -1,7 +1,7 @@
 // src/context/ToastContext.tsx
 import React, { createContext, useContext, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react'
+import { CheckCircle, XCircle, AlertTriangle, Info, X, Flame } from 'lucide-react'
 import { ToastItem } from '../types'
 import { genId } from '../utils/storage'
 
@@ -11,6 +11,7 @@ interface ToastContextType {
   error: (msg: string) => void
   warn: (msg: string) => void
   info: (msg: string) => void
+  fire: (msg: string) => void
 }
 
 const ToastContext = createContext<ToastContextType | null>(null)
@@ -20,6 +21,7 @@ const ICONS = {
   error:   XCircle,
   warning: AlertTriangle,
   info:    Info,
+  fire:    Flame,
 }
 
 const COLORS = {
@@ -27,6 +29,7 @@ const COLORS = {
   error:   '#e04060',
   warning: '#f0c040',
   info:    '#4080f0',
+  fire:    '#e05a30',
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -36,7 +39,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts(t => t.filter(x => x.id !== id))
   }, [])
 
-  const addToast = useCallback((message: string, type: ToastItem['type'] = 'success', duration = 4000) => {
+  const addToast = useCallback((message: string, type: ToastItem['type'] = 'success', duration = 3200) => {
     const id = genId()
     setToasts(t => [...t, { id, message, type, duration }])
     setTimeout(() => remove(id), duration)
@@ -46,9 +49,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const error   = useCallback((msg: string) => addToast(msg, 'error',   5000), [addToast])
   const warn    = useCallback((msg: string) => addToast(msg, 'warning'), [addToast])
   const info    = useCallback((msg: string) => addToast(msg, 'info'),    [addToast])
+  const fire    = useCallback((msg: string) => addToast(msg, 'fire', 5000), [addToast])
 
   return (
-    <ToastContext.Provider value={{ addToast, success, error, warn, info }}>
+    <ToastContext.Provider value={{ addToast, success, error, warn, info, fire }}>
       {children}
       <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
         <AnimatePresence>

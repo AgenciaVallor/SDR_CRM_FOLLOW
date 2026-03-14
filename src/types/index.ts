@@ -187,6 +187,6 @@ export interface Alert {
 export interface ToastItem {
   id: string
   message: string
-  type: 'success' | 'error' | 'warning' | 'info'
+  type: 'success' | 'error' | 'warning' | 'info' | 'fire'
   duration?: number
 }
