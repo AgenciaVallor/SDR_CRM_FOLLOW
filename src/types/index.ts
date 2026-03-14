@@ -24,6 +24,8 @@ export interface ChecklistCall {
 export type CallStatus = 'atendida' | 'perdida' | 'nao-atendeu' | 'caixa-postal'
 export type MeetingLocal = 'presencial' | 'zoom' | 'meet' | 'telefone' | 'whatsapp'
 
+export type DiaSemana = 'segunda' | 'terca' | 'quarta' | 'quinta' | 'sexta' | 'sabado'
+
 export interface Call {
   id: string
   nome: string
@@ -33,7 +35,7 @@ export interface Call {
   reuniaoAgendada: boolean
   reuniaoData: string | null
   reuniaoHora: string | null
-  reuniaoLocal: MeetingLocal
+  reuniaoLocal: MeetingLocal | null
   anotacao: string
   checklist: ChecklistCall
   followup: boolean
@@ -45,7 +47,7 @@ export interface Call {
   leadId: string | null
   timestamp: number
   diaSemana: 0 | 1 | 2 | 3 | 4 | 5 | 6
-  semana: string
+  semanaKey: string
   mes: string
 }
 

@@ -131,7 +131,7 @@ function makeCall(
     reuniaoAgendada: reuniao,
     reuniaoData: reuniao ? format(addDays(new Date(), 1), 'yyyy-MM-dd') : null,
     reuniaoHora: reuniao ? '14:00' : null,
-    reuniaoLocal: 'meet' as MeetingLocal,
+    reuniaoLocal: ('meet' as MeetingLocal) || null,
     anotacao,
     checklist: {
       apresentouProposta:   checklist.apresentouProposta   ?? false,
@@ -151,7 +151,7 @@ function makeCall(
     leadId,
     timestamp: ts,
     diaSemana: d.getDay() as 0|1|2|3|4|5|6,
-    semana: getWeekKey(d),
+    semanaKey: getWeekKey(d),
     mes: format(d, 'yyyy-MM'),
   }
 }
