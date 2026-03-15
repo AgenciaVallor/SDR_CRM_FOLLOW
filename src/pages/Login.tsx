@@ -165,8 +165,7 @@ export default function Login({ onLogin }: Props) {
             </motion.button>
           </form>
         </motion.div>
-
-        </form>
+      </motion.div>
     </div>
   )
 }
