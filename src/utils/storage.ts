@@ -33,17 +33,21 @@ export async function logoutUser(): Promise<void> {
 }
 
 export async function getCurrentSession(): Promise<User | null> {
-  const { data } = await supabase.auth.getSession()
-  if (!data.session) return null
+  try {
+    const { data, error } = await supabase.auth.getSession()
+    if (error || !data.session) return null
 
-  const { data: userData } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', data.session.user.id)
-    .single()
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', data.session.user.id)
+      .single()
 
-  if (!userData || !userData.ativo) return null
-  return mapDbUser(userData)
+    if (userError || !userData || !userData.ativo) return null
+    return mapDbUser(userData)
+  } catch {
+    return null
+  }
 }
 
 // ── USERS ───────────────────────────────────────────────

@@ -44,25 +44,40 @@ export default function App() {
 }
 
 function AppInner() {
-  const { user, login, logout, isAdmin, setUser, loading: authLoading } = useAuth()
-  const [appLoading, setAppLoading] = useState(true)
+  const { login, logout } = useAuth()
+  const [appLoading, setAppLoading]   = useState(true)
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [loginLoading, setLoginLoading] = useState(false)
   const [loginError, setLoginError] = useState('')
 
   useEffect(() => {
-    getCurrentSession().then(u => {
-      if (u) setUser(u)
+    // Hard timeout — app MUST render within 8 seconds no matter what
+    const hardTimeout = setTimeout(() => {
       setAppLoading(false)
-    })
-  }, [setUser])
+    }, 8000)
 
+    getCurrentSession()
+      .then(user => {
+        clearTimeout(hardTimeout)
+        if (user) setCurrentUser(user)
+        setAppLoading(false)
+      })
+      .catch(() => {
+        clearTimeout(hardTimeout)
+        setAppLoading(false)
+      })
+
+    return () => clearTimeout(hardTimeout)
+  }, [])
+
+  const isAdmin = currentUser?.role === 'admin'
   const [page, setPage] = useState('dashboard')
   const [callModalOpen, setCallModalOpen] = useState(false)
   const [callModalPrefill, setCallModalPrefill] = useState<any>(null)
   const [newLeadOpen, setNewLeadOpen] = useState(false)
   
-  const { calls, add: addCall, reload: reloadCalls, getTodayStats, getFollowups, loading: callsLoading } = useCalls(user?.id, isAdmin)
-  const { leads, add: addLead, update: updateLead, moveColumn, reload: reloadLeads, getPipelineValue, loading: leadsLoading } = useLeads(user?.id, isAdmin)
+  const { calls, add: addCall, reload: reloadCalls, getTodayStats, getFollowups, loading: callsLoading } = useCalls(currentUser?.id, isAdmin)
+  const { leads, add: addLead, update: updateLead, moveColumn, reload: reloadLeads, getPipelineValue, loading: leadsLoading } = useLeads(currentUser?.id, isAdmin)
   const { alerts, checkInactivity } = useAlerts()
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -86,12 +101,12 @@ function AppInner() {
   }, [isAdmin, checkInactivity])
 
   const followupCount = useMemo(() => {
-    if (!user) return 0
+    if (!currentUser) return 0
     const today = format(new Date(), 'yyyy-MM-dd')
-    return getFollowups(isAdmin ? undefined : user.id).filter(c => c.followupData && c.followupData <= today).length
-  }, [calls, user, isAdmin, getFollowups])
+    return getFollowups(isAdmin ? undefined : currentUser.id).filter(c => c.followupData && c.followupData <= today).length
+  }, [calls, currentUser, isAdmin, getFollowups])
 
-  const todayStats = user ? getTodayStats(user.id) : { ligacoes: 0, reunioes: 0 }
+  const todayStats = currentUser ? getTodayStats(currentUser.id) : { ligacoes: 0, reunioes: 0 }
   const pipelineValue = getPipelineValue()
 
   const [allUsers, setAllUsers] = useState<User[]>([])
@@ -110,7 +125,11 @@ function AppInner() {
     setLoginLoading(true)
     setLoginError('')
     const u = await login(email, senha)
-    if (!u) {
+    if (u) {
+      // Need to sync local session after successful login
+      const session = await getCurrentSession()
+      setCurrentUser(session)
+    } else {
       setLoginError('Usuário ou senha incorretos.')
     }
     setLoginLoading(false)
@@ -118,13 +137,26 @@ function AppInner() {
 
   async function handleLogout() {
     await logout()
+    setCurrentUser(null)
   }
 
-  if (appLoading || authLoading) {
-    return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0f', color: '#fff' }}>Carregando...</div>
+  if (appLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: '#0a0a0f',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: '16px',
+      }}>
+        <div style={{
+          fontFamily: 'Syne, sans-serif', fontWeight: 800,
+          fontSize: '28px', color: '#f0c040', letterSpacing: '-1px',
+        }}>VALLOR</div>
+        <div style={{ color: '#7070a0', fontSize: '13px' }}>Carregando...</div>
+      </div>
+    )
   }
 
-  if (!user) {
+  if (!currentUser) {
     return (
       <AnimatePresence>
         <Login onLogin={handleLogin} loading={loginLoading} error={loginError} />
@@ -135,24 +167,24 @@ function AppInner() {
   const renderPage = () => {
     switch (page) {
       case 'dashboard':
-        return <Dashboard user={user} isAdmin={isAdmin} calls={calls} pipelineValue={pipelineValue} alerts={alerts} setPage={setPage} />
+        return <Dashboard user={currentUser} isAdmin={isAdmin} calls={calls} pipelineValue={pipelineValue} alerts={alerts} setPage={setPage} />
       case 'semana':
-        return <SemanaAtual user={user} isAdmin={isAdmin} users={allUsers} onNewCall={openCallModal} />
+        return <SemanaAtual user={currentUser} isAdmin={isAdmin} users={allUsers} onNewCall={openCallModal} />
       case 'ligacoes':
-        return <Ligacoes calls={calls} user={user} isAdmin={isAdmin} onNewCall={() => openCallModal()} />
+        return <Ligacoes calls={calls} user={currentUser} isAdmin={isAdmin} onNewCall={() => openCallModal()} />
       case 'followup':
-        return <FollowUp calls={calls} user={user} isAdmin={isAdmin} onNewCall={openCallModal} onReload={reloadCalls} />
+        return <FollowUp calls={calls} user={currentUser} isAdmin={isAdmin} onNewCall={openCallModal} onReload={reloadCalls} />
       case 'kanban':
-        return <Kanban leads={leads} user={user} isAdmin={isAdmin} onReload={reloadLeads} />
+        return <Kanban leads={leads} user={currentUser} isAdmin={isAdmin} onReload={reloadLeads} />
       case 'reunioes':
-        return <Reunioes user={user} isAdmin={isAdmin} />
+        return <Reunioes user={currentUser} isAdmin={isAdmin} />
       case 'cadencia':
-        return <Cadencia user={user} isAdmin={isAdmin} />
+        return <Cadencia user={currentUser} isAdmin={isAdmin} />
       case 'whatsapp':
-        return <WhatsApp user={user} isAdmin={isAdmin} calls={calls} />
+        return <WhatsApp user={currentUser} isAdmin={isAdmin} calls={calls} />
       case 'ranking':
         if (!isAdmin) { setTimeout(() => setPage('dashboard'), 0); return null; }
-        return <Ranking user={user} />
+        return <Ranking user={currentUser} />
       case 'usuarios':
         if (!isAdmin) { setTimeout(() => setPage('dashboard'), 0); return null; }
         return <Usuarios onReload={reloadCalls} />
@@ -160,7 +192,7 @@ function AppInner() {
         if (!isAdmin) { setTimeout(() => setPage('dashboard'), 0); return null; }
         return <Configuracoes />
       default:
-        return <Dashboard user={user} isAdmin={isAdmin} calls={calls} pipelineValue={pipelineValue} alerts={alerts} setPage={setPage} />
+        return <Dashboard user={currentUser} isAdmin={isAdmin} calls={calls} pipelineValue={pipelineValue} alerts={alerts} setPage={setPage} />
     }
   }
 
@@ -169,7 +201,7 @@ function AppInner() {
       <Sidebar
         page={page}
         setPage={setPage}
-        user={user}
+        user={currentUser}
         onLogout={logout}
         followupCount={followupCount}
       />
@@ -177,7 +209,7 @@ function AppInner() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Topbar
           page={page}
-          user={user}
+          user={currentUser}
           onNewCall={() => openCallModal()}
           onNewLead={() => setNewLeadOpen(true)}
         />
@@ -199,7 +231,7 @@ function AppInner() {
       </div>
 
       {/* Global Call Modal */}
-      {callModalOpen && user && (
+      {callModalOpen && currentUser && (
         <CallModal
           open={callModalOpen}
           onClose={() => setCallModalOpen(false)}
@@ -207,16 +239,16 @@ function AppInner() {
             await addCall(call)
             reloadCalls()
           }}
-          userId={user.id}
-          userName={user.nome}
+          userId={currentUser.id}
+          userName={currentUser.nome}
           prefill={callModalPrefill}
           todayStats={todayStats}
         />
       )}
 
-      {showOnboarding && user && (
+      {showOnboarding && currentUser && (
         <OnboardingModal
-          nomeUsuario={user.nome}
+          nomeUsuario={currentUser.nome}
           onConcluir={handleOnboardingConcluir}
         />
       )}
