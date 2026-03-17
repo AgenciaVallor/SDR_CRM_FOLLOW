@@ -77,22 +77,6 @@ export async function getUsers(): Promise<User[]> {
   return (data || []).map(mapDbUser)
 }
 
-export async function createUser(userData: {
-  nome: string
-  email: string
-  senha: string
-  role: 'admin' | 'gerente' | 'vendedor'
-  avatar: string
-  metaDiariaLigacoes: number
-  metaDiariaReunioes: number
-}): Promise<{ success: boolean; error?: string }> {
-  const response = await supabase.functions.invoke('create-user', {
-    body: userData,
-  })
-  if (response.error) return { success: false, error: response.error.message }
-  if (response.data?.error) return { success: false, error: response.data.error }
-  return { success: true }
-}
 
 export async function updateUser(
   userId: string,

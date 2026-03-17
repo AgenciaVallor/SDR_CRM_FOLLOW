@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { getUsers, createUser, updateUser, deleteUser, genId } from '../utils/storage'
+import { getUsers, updateUser, deleteUser } from '../utils/storage'
 import { User } from '../types'
+import { supabase } from '../lib/supabase'
 
 const AVATAR_COLORS = [
   '#f0c040', '#4080f0', '#30d090', '#e04060',
@@ -77,7 +78,7 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
           setFormError('As senhas não coincidem.'); return
         }
 
-        const result = await createUser({
+        const userData = {
           nome: form.nome.trim(),
           email: form.email.trim().toLowerCase(),
           senha: form.senha,
@@ -85,10 +86,17 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
           avatar: form.avatar,
           metaDiariaLigacoes: form.metaDiariaLigacoes,
           metaDiariaReunioes: form.metaDiariaReunioes,
-        })
+        }
 
-        if (!result.success) {
-          setFormError(result.error || 'Erro ao criar usuário.')
+        const response = await supabase.functions.invoke('create-user', { body: userData })
+
+        if (response.error) {
+          const msg = response.error.message || 'Erro ao criar usuário'
+          setFormError(msg)
+          return
+        }
+        if (response.data?.error) {
+          setFormError(response.data.error)
           return
         }
       } else {
