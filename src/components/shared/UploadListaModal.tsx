@@ -14,7 +14,7 @@ interface UploadListaModalProps {
   currentWeekKey: string
   currentUserId: string
   currentUserNome: string
-  currentUserRole: 'admin' | 'vendedor'
+  currentUserRole: 'admin' | 'gerente' | 'vendedor'
   onClose: () => void
   onSuccess: () => void
 }

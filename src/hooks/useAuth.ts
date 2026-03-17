@@ -18,7 +18,7 @@ export function useAuth() {
       userId: found.id,
       nome: found.nome,
       email: found.email,
-      role: found.role,
+      role: found.role as 'admin' | 'gerente' | 'vendedor',
     }
     setSession(s)
     setSessionState(s)

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { format, addDays, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { User } from '../types'
-import { getLeads, getUsers, updateLead } from '../utils/storage'
+import { getLeads, getUsers, updateLead, getVisibleUsers } from '../utils/storage'
 import { Avatar } from '../components/ui/Avatar'
 import { Badge } from '../components/ui/Badge'
 import { LOCAL_LABELS } from '../utils/formatters'
@@ -17,14 +17,14 @@ interface Props {
 export default function Reunioes({ user, isAdmin }: Props) {
   const [tab, setTab] = useState<'lista' | 'calendario'>('lista')
   const [filterStatus, setFilterStatus] = useState('')
-  const users = getUsers()
+  const users = getVisibleUsers(user, getUsers())
   const today = format(new Date(), 'yyyy-MM-dd')
 
   const allMeetings = useMemo(() => {
     const leads = getLeads()
     const result: Array<{ id: string; data: string; hora: string; local: string; status: string; obs: string; leadNome: string; leadEmpresa: string; leadId: string; responsavelId: string }> = []
     for (const lead of leads) {
-      if (!isAdmin && lead.responsavelId !== user.id) continue
+      // Visibility is already handled by useLeads inside App.tsx which passes leads into Reunioes
       for (const m of lead.reunioes) {
         result.push({
           id: m.id, data: m.data, hora: m.hora, local: m.local, status: m.status, obs: m.obs,

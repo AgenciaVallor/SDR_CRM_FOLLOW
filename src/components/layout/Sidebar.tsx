@@ -5,7 +5,7 @@ import { ScriptPanel } from '../shared/ScriptPanel'
 import {
   LayoutDashboard, Calendar, Phone, Bell, Target,
   Users, Settings, Trophy, MessageSquare, Flame,
-  Handshake, LogOut, ChevronRight
+  Handshake, LogOut, ChevronRight, Eye
 } from 'lucide-react'
 import { User } from '../../types'
 
@@ -28,8 +28,14 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'whatsapp',      label: 'WhatsApp Export',  icon: MessageSquare },
 ]
 
+const MANAGER_ITEMS: NavItem[] = [
+  { key: 'ranking',       label: 'Ranking Equipe',   icon: Trophy },
+  { key: 'meu-time',      label: 'Meu Time',         icon: Eye },
+]
+
 const ADMIN_ITEMS: NavItem[] = [
   { key: 'ranking',       label: 'Ranking Equipe',   icon: Trophy },
+  { key: 'meu-time',      label: 'Meu Time',         icon: Eye },
   { key: 'usuarios',      label: 'Usuários',         icon: Users },
   { key: 'configuracoes', label: 'Configurações',    icon: Settings },
 ]
@@ -43,7 +49,12 @@ interface Props {
 }
 
 export default function Sidebar({ page, setPage, user, onLogout, followupCount = 0 }: Props) {
-  const isAdmin = user?.role === 'admin'
+  const isAdmin   = user?.role === 'admin'
+  const isGerente = user?.role === 'gerente'
+  const isVendedor= user?.role === 'vendedor'
+
+  const canSeeManagerItems = isAdmin || isGerente
+
   const [scriptOpen, setScriptOpen] = useState(false)
 
   return (
@@ -75,6 +86,20 @@ export default function Sidebar({ page, setPage, user, onLogout, followupCount =
             badge={item.key === 'followup' ? followupCount : 0}
           />
         ))}
+
+        {canSeeManagerItems && !isAdmin && (
+          <>
+            <div className="my-3 border-t" style={{ borderColor: 'var(--border)' }} />
+            {MANAGER_ITEMS.map(item => (
+              <NavBtn
+                key={item.key}
+                item={item}
+                active={page === item.key}
+                onClick={() => setPage(item.key)}
+              />
+            ))}
+          </>
+        )}
 
         {isAdmin && (
           <>
@@ -117,7 +142,7 @@ export default function Sidebar({ page, setPage, user, onLogout, followupCount =
           <div className="min-w-0 flex-1">
             <div className="text-xs font-semibold truncate" style={{ color: 'var(--text)' }}>{user?.nome}</div>
             <div className="text-xs" style={{ color: 'var(--muted)' }}>
-              {user?.role === 'admin' ? 'Admin' : 'Vendedor'}
+              {isAdmin ? 'Admin' : isGerente ? 'Gerente' : 'Vendedor'}
             </div>
           </div>
           <button

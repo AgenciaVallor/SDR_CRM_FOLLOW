@@ -60,6 +60,14 @@ const MASTER_ADMIN: User = {
 export const getUsers = (): User[] =>
   JSON.parse(localStorage.getItem(KEYS.users) || '[]')
 
+export function getVisibleUsers(currentUser: User | null, allUsers: User[]): User[] {
+  if (!currentUser) return []
+  if (currentUser.role === 'admin') return allUsers
+  if (currentUser.role === 'gerente') return allUsers.filter(u => u.role === 'vendedor')
+  return []
+}
+  JSON.parse(localStorage.getItem(KEYS.users) || '[]')
+
 export const saveUsers = (users: User[]): void =>
   localStorage.setItem(KEYS.users, JSON.stringify(users))
 
@@ -88,6 +96,14 @@ export const getUserById = (id: string): User | undefined => getUsers().find(u =
 
 // ─── Calls ────────────────────────────────────────────────────────────────────
 export const getCalls = (): Call[] => getItem<Call>(KEYS.calls)
+
+export function getVisibleCalls(currentUser: User | null, allCalls: Call[]): Call[] {
+  if (!currentUser) return []
+  if (currentUser.role === 'admin') return allCalls
+  if (currentUser.role === 'gerente') return allCalls
+  return allCalls.filter(c => c.operadorId === currentUser.id)
+}
+
 export const setCalls = (calls: Call[]): void => setItem(KEYS.calls, calls)
 export const saveCalls = setCalls
 export const addCall = (c: Call): void => setCalls([...getCalls(), c])

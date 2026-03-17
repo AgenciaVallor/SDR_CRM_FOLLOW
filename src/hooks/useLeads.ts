@@ -1,19 +1,21 @@
 // src/hooks/useLeads.ts
 import { useState, useCallback } from 'react'
 import { Lead, Activity } from '../types'
-import { getLeads, setLeads, addLead, updateLead, deleteLead, getCols } from '../utils/storage'
+import { getLeads, setLeads, addLead, updateLead, deleteLead, getCols, getUserById } from '../utils/storage'
 import { genId } from '../utils/storage'
 
 export function useLeads(userId?: string, isAdmin?: boolean) {
+  const _isAdmin = isAdmin || (userId ? getUserById(userId)?.role === 'gerente' : false)
+
   const [leads, setLeadsState] = useState<Lead[]>(() => {
     const all = getLeads()
-    return isAdmin || !userId ? all : all.filter(l => l.responsavelId === userId)
+    return _isAdmin || !userId ? all : all.filter(l => l.responsavelId === userId)
   })
 
   const reload = useCallback(() => {
     const all = getLeads()
-    setLeadsState(isAdmin || !userId ? all : all.filter(l => l.responsavelId === userId))
-  }, [userId, isAdmin])
+    setLeadsState(_isAdmin || !userId ? all : all.filter(l => l.responsavelId === userId))
+  }, [userId, _isAdmin])
 
   const add = useCallback((l: Lead) => {
     addLead(l)

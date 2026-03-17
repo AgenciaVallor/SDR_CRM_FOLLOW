@@ -1,7 +1,7 @@
 // src/hooks/useCalls.ts
 import { useState, useCallback } from 'react'
 import { Call, CallStatus, DiaStatus } from '../types'
-import { getCalls, setCalls, addCall, updateCall, deleteCall } from '../utils/storage'
+import { getCalls, setCalls, addCall, updateCall, deleteCall, getVisibleCalls, getUserById } from '../utils/storage'
 import { getISOWeek, getISOWeekYear, format, parseISO, startOfDay, endOfDay } from 'date-fns'
 import { getWeekKey } from '../utils/weekUtils'
 
@@ -9,16 +9,20 @@ function buildWeekKey(d: Date): string {
   return `${getISOWeekYear(d)}-${String(getISOWeek(d)).padStart(2,'0')}`
 }
 
-export function useCalls(userId?: string, isAdmin?: boolean) {
+export function useCalls(userId?: string, _isAdminIgnoredDumbArgForBackwardsCompat?: boolean) {
   const [calls, setCallsState] = useState<Call[]>(() => {
     const all = getCalls()
-    return isAdmin || !userId ? all : all.filter(c => c.operadorId === userId)
+    if (!userId) return []
+    const u = getUserById(userId)
+    return getVisibleCalls(u || null, all)
   })
 
   const reload = useCallback(() => {
     const all = getCalls()
-    setCallsState(isAdmin || !userId ? all : all.filter(c => c.operadorId === userId))
-  }, [userId, isAdmin])
+    if (!userId) return setCallsState([])
+    const u = getUserById(userId)
+    setCallsState(getVisibleCalls(u || null, all))
+  }, [userId])
 
   const add = useCallback((c: Call) => {
     addCall(c)
@@ -38,12 +42,13 @@ export function useCalls(userId?: string, isAdmin?: boolean) {
   const getCallsForDay = useCallback((uid: string, date: string) => {
     const start = startOfDay(parseISO(date)).getTime()
     const end   = endOfDay(parseISO(date)).getTime()
-    return getCalls().filter(c =>
+    const u = getUserById(userId || uid)
+    return getVisibleCalls(u || null, getCalls()).filter(c =>
       c.operadorId === uid &&
       c.timestamp >= start &&
       c.timestamp <= end
     )
-  }, [])
+  }, [userId])
 
   const getStatsForDay = useCallback((uid: string, date: string) => {
     const dayCalls = getCallsForDay(uid, date)
@@ -69,7 +74,9 @@ export function useCalls(userId?: string, isAdmin?: boolean) {
   }, [getStatsForDay])
 
   const getWeeklyStats = useCallback((uid: string, weekKey: string) => {
-    const all = getCalls().filter(c => c.operadorId === uid && c.semanaKey === weekKey)
+    const u = getUserById(userId || uid)
+    const allCalls = getVisibleCalls(u || null, getCalls())
+    const all = allCalls.filter(c => c.operadorId === uid && c.semanaKey === weekKey)
     const reunioes = all.filter(c => c.reuniaoAgendada).length
     return {
       totalLigacoes: all.length,
@@ -81,20 +88,22 @@ export function useCalls(userId?: string, isAdmin?: boolean) {
   }, [])
 
   const getFollowups = useCallback((uid?: string) => {
-    const all = getCalls()
+    const u = getUserById(userId || uid || '')
+    const all = getVisibleCalls(u || null, getCalls())
     const base = uid ? all.filter(c => c.operadorId === uid) : all
     return base.filter(c => c.followup && !c.followupFeito)
-  }, [])
+  }, [userId])
 
   const getLastActivity = useCallback((uid: string): number | null => {
     const today = format(new Date(), 'yyyy-MM-dd')
-    const callsToday = getCalls().filter(c => {
+    const u = getUserById(userId || uid)
+    const callsToday = getVisibleCalls(u || null, getCalls()).filter(c => {
       const d = format(new Date(c.timestamp), 'yyyy-MM-dd')
       return c.operadorId === uid && d === today
     })
     if (callsToday.length === 0) return null
     return Math.max(...callsToday.map(c => c.timestamp))
-  }, [])
+  }, [userId])
 
   return { calls, add, update, remove, reload, getCallsForDay, getStatsForDay, getTodayStats, getWeeklyStats, getFollowups, getLastActivity }
 }

@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { User } from '../types'
-import { getCalls, getUsers } from '../utils/storage'
+import { getCalls, getUsers, getVisibleUsers } from '../utils/storage'
 import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns'
 import { Avatar } from '../components/ui/Avatar'
 import { ProgressBar } from '../components/ui/ProgressBar'
@@ -28,7 +28,7 @@ type Period = 'hoje' | 'semana' | 'mes' | 'total'
 
 export default function Ranking({ user }: Props) {
   const [period, setPeriod] = useState<Period>('semana')
-  const users = getUsers().filter(u => u.role === 'vendedor' && u.ativo)
+  const users = getVisibleUsers(user, getUsers()).filter(u => u.role === 'vendedor' && u.ativo)
 
   const today = format(new Date(), 'yyyy-MM-dd')
 

@@ -6,7 +6,7 @@ import { Phone, Handshake, TrendingUp, DollarSign, AlertTriangle, Clock, CheckCi
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { Avatar } from '../components/ui/Avatar'
 import { User, Call } from '../types'
-import { getUsers, getCalls } from '../utils/storage'
+import { getUsers, getCalls, getVisibleUsers } from '../utils/storage'
 import { formatCurrency, formatRelativeTime, STATUS_GRUPOS } from '../utils/formatters'
 import { format, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -33,7 +33,7 @@ interface Props {
 
 export default function Dashboard({ user, isAdmin, calls, pipelineValue, alerts, setPage }: Props) {
   const today = format(new Date(), 'yyyy-MM-dd')
-  const users = getUsers()
+  const users = getVisibleUsers(user, getUsers())
 
   // Today's calls for current user
   const todayCalls = useMemo(() => calls.filter(c => {
@@ -52,9 +52,9 @@ export default function Dashboard({ user, isAdmin, calls, pipelineValue, alerts,
   const chartData = useMemo(() => {
     return Array.from({ length: 14 }, (_, i) => {
       const d = format(subDays(new Date(), 13 - i), 'yyyy-MM-dd')
-      const dayCalls = (isAdmin ? getCalls() : calls).filter(c => {
+      const dayCalls = calls.filter(c => {
         const cd = format(new Date(c.timestamp), 'yyyy-MM-dd')
-        return cd === d && (isAdmin || c.operadorId === user.id)
+        return cd === d
       })
       return {
         date: format(subDays(new Date(), 13 - i), 'dd/MM', { locale: ptBR }),

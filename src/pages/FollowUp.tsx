@@ -8,7 +8,7 @@ import { openWhatsApp } from '../utils/whatsapp'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Avatar } from '../components/ui/Avatar'
-import { getUsers } from '../utils/storage'
+import { getUsers, getVisibleUsers } from '../utils/storage'
 
 interface Props {
   calls: Call[]
@@ -26,10 +26,10 @@ export default function FollowUp({ calls, user, isAdmin, onNewCall, onReload }: 
   const [novaData, setNovaData] = useState('')
 
   const today = format(new Date(), 'yyyy-MM-dd')
-  const users = getUsers()
+  const users = getVisibleUsers(user, getUsers())
 
   const followups = useMemo(() => {
-    const base = isAdmin ? calls : calls.filter(c => c.operadorId === user.id)
+    const base = calls
     const withFollowup = base.filter(c => c.followup && c.followupData)
 
     if (tab === 'atrasados')  return withFollowup.filter(c => !c.followupFeito && c.followupData! < today).sort((a,b) => a.followupData!.localeCompare(b.followupData!))
@@ -40,11 +40,11 @@ export default function FollowUp({ calls, user, isAdmin, onNewCall, onReload }: 
   }, [calls, tab, user.id, isAdmin, today])
 
   const counts = useMemo(() => ({
-    atrasados: (isAdmin ? calls : calls.filter(c => c.operadorId === user.id))
+    atrasados: calls
       .filter(c => c.followup && c.followupData && !c.followupFeito && c.followupData < today).length,
-    hoje: (isAdmin ? calls : calls.filter(c => c.operadorId === user.id))
+    hoje: calls
       .filter(c => c.followup && c.followupData === today && !c.followupFeito).length,
-  }), [calls, user.id, isAdmin, today])
+  }), [calls, today])
 
   const markDone = (id: string) => {
     updateCall(id, { followupFeito: true })

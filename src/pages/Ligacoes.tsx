@@ -9,7 +9,7 @@ import { openWhatsApp } from '../utils/whatsapp'
 import { STATUS_COLORS, STATUS_LABELS } from '../utils/formatters'
 import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { getUsers } from '../utils/storage'
+import { getUsers, getVisibleUsers } from '../utils/storage'
 
 interface Props {
   calls: Call[]
@@ -27,11 +27,11 @@ export default function Ligacoes({ calls, user, isAdmin, onNewCall }: Props) {
   const [filterOp, setFilterOp] = useState('')
   const [filterReuniao, setFilterReuniao] = useState('')
 
-  const users = getUsers()
+  const users = getVisibleUsers(user, getUsers())
   const today = format(new Date(), 'yyyy-MM-dd')
 
   const filteredCalls = useMemo(() => {
-    let base = isAdmin ? calls : calls.filter(c => c.operadorId === user.id)
+    let base = calls
 
     // Tab filter
     if (tab === 'hoje') {

@@ -5,7 +5,7 @@ export interface User {
   nome: string
   email: string
   senha: string
-  role: 'admin' | 'vendedor'
+  role: 'admin' | 'gerente' | 'vendedor'
   avatar: string
   metaDiariaLigacoes: number
   metaDiariaReunioes: number
@@ -202,7 +202,7 @@ export interface Session {
   userId: string
   nome: string
   email: string
-  role: 'admin' | 'vendedor'
+  role: 'admin' | 'gerente' | 'vendedor'
 }
 
 export interface CadenciaTemplate {

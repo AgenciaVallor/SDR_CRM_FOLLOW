@@ -18,7 +18,7 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [form, setForm] = useState({
     nome: '', email: '', senha: '', confirmSenha: '',
-    role: 'vendedor' as 'admin' | 'vendedor',
+    role: 'vendedor' as 'admin' | 'gerente' | 'vendedor',
     metaDiariaLigacoes: 50, metaDiariaReunioes: 5,
     avatar: '#f0c040', ativo: true,
   })
@@ -241,10 +241,10 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
               <span style={{
                 padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
                 background: user.role === 'admin'
-                  ? 'rgba(240,192,64,0.15)' : 'rgba(64,128,240,0.15)',
-                color: user.role === 'admin' ? 'var(--accent)' : 'var(--blue)',
+                  ? 'rgba(240,192,64,0.15)' : user.role === 'gerente' ? 'rgba(160,160,192,0.15)' : 'rgba(64,128,240,0.15)',
+                color: user.role === 'admin' ? 'var(--accent)' : user.role === 'gerente' ? '#a0a0c0' : 'var(--blue)',
               }}>
-                {user.role === 'admin' ? 'Admin' : 'Vendedor'}
+                {user.role === 'admin' ? 'Admin' : user.role === 'gerente' ? 'Gerente' : 'Vendedor'}
               </span>
 
               {/* Status badge */}
@@ -383,7 +383,7 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
                   </div>
                   <select
                     value={form.role}
-                    onChange={e => setForm(f => ({ ...f, role: e.target.value as 'admin' | 'vendedor' }))}
+                    onChange={e => setForm(f => ({ ...f, role: e.target.value as 'admin' | 'gerente' | 'vendedor' }))}
                     disabled={editingUser?.email === 'valloragencia@gmail.com'}
                     style={{
                       width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)',
@@ -392,6 +392,7 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
                     }}
                   >
                     <option value="vendedor">Vendedor</option>
+                    <option value="gerente">Gerente</option>
                     <option value="admin">Administrador</option>
                   </select>
                 </div>
