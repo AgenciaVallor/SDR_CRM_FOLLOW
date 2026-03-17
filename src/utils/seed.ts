@@ -127,6 +127,7 @@ function makeCall(
     nome,
     numero,
     empresa,
+    nicho: '',
     status,
     reuniaoAgendada: reuniao,
     reuniaoData: reuniao ? format(addDays(new Date(), 1), 'yyyy-MM-dd') : null,

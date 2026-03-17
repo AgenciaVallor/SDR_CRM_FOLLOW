@@ -11,6 +11,8 @@ import { genId } from '../../utils/storage'
 import { getWeekKey, dayOfWeekIndex, todayStr } from '../../utils/weekUtils'
 import { getISOWeekYear, getISOWeek, format } from 'date-fns'
 import { useToast } from '../../context/ToastContext'
+import { ScriptPanel } from '@/components/shared/ScriptPanel'
+import { NICHOS } from '@/data/treinamento'
 
 interface Props {
   open: boolean
@@ -106,6 +108,8 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
   const [leadId, setLeadId] = useState<string | null>(prefill?.leadId ?? null)
   const [leadSearch, setLeadSearch] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [scriptOpen, setScriptOpen] = useState(false)
+  const [selectedNicho, setSelectedNicho] = useState('')
 
   const leads = getLeads()
   const filteredLeads = leadSearch.length > 1
@@ -138,10 +142,11 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
     const weekKey = getWeekKey(now)
 
     const call: Call = {
-      id: genId(),
+      id: prefill?.id || genId(),
       nome: nome.trim(),
       numero: numero.trim(),
       empresa: empresa.trim(),
+      nicho: selectedNicho,
       status,
       reuniaoAgendada: reuniao,
       reuniaoData: reuniao ? reuniaoData : null,
@@ -223,10 +228,29 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
   }
 
   return (
+    <>
     <Modal
       open={open}
       onClose={handleClose}
-      title="📞 Registrar Ligação"
+      title={
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span>{prefill?.id ? '✏️ EDITAR LIGAÇÃO' : '📞 NOVA LIGAÇÃO'}</span>
+          <button
+            onClick={() => setScriptOpen(true)}
+            style={{
+              padding: '6px 14px', borderRadius: '7px',
+              background: 'rgba(240,192,64,0.1)',
+              border: '1px solid rgba(240,192,64,0.25)',
+              color: 'var(--accent)', cursor: 'pointer',
+              fontSize: '12px', fontWeight: 700,
+              fontFamily: 'DM Sans, sans-serif',
+              display: 'flex', alignItems: 'center', gap: '5px',
+            }}
+          >
+            📋 Script
+          </button>
+        </div>
+      }
       width={640}
       footer={
         <>
@@ -294,6 +318,25 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
             placeholder="Empresa"
             className="w-full text-sm mt-3"
           />
+          <div style={{ marginBottom: '16px', marginTop: '12px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', marginBottom: '6px' }}>
+              Nicho
+            </div>
+            <select
+              value={selectedNicho}
+              onChange={e => setSelectedNicho(e.target.value)}
+              style={{
+                width: '100%', background: 'var(--s2)', border: '1px solid var(--border)',
+                borderRadius: '8px', padding: '10px 14px', color: selectedNicho ? 'var(--text)' : 'var(--muted)',
+                fontSize: '13px', outline: 'none',
+              }}
+            >
+              <option value="">Selecionar nicho...</option>
+              {NICHOS.map(n => (
+                <option key={n.id} value={n.nome}>{n.nome}</option>
+              ))}
+            </select>
+          </div>
         </section>
 
         {/* === RESULTADO DA LIGAÇÃO === */}
@@ -599,6 +642,8 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
         </section>
       </div>
     </Modal>
+    <ScriptPanel isOpen={scriptOpen} onClose={() => setScriptOpen(false)} />
+    </>
   )
 }
 

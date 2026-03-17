@@ -15,6 +15,7 @@ import { format } from 'date-fns'
 import Sidebar from './components/layout/Sidebar'
 import Topbar from './components/layout/Topbar'
 import CallModal from './components/shared/CallModal'
+import { OnboardingModal } from './components/shared/OnboardingModal'
 
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -74,6 +75,23 @@ function AppInner() {
   const { alerts, checkInactivity } = useAlerts()
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    const sessionStr = sessionStorage.getItem('vallor_session')
+    if (!sessionStr) return false
+    const userId = JSON.parse(sessionStr).userId
+    const seen = localStorage.getItem(`vallor_onboarding_${userId}`)
+    return !seen
+  })
+
+  function handleOnboardingConcluir() {
+    const sessionStr = sessionStorage.getItem('vallor_session')
+    if (sessionStr) {
+      const userId = JSON.parse(sessionStr).userId
+      localStorage.setItem(`vallor_onboarding_${userId}`, 'true')
+    }
+    setShowOnboarding(false)
+  }
 
   // Inactivity polling every 60s
   useEffect(() => {
@@ -187,6 +205,13 @@ function AppInner() {
           userName={user.nome}
           todayStats={todayStats}
           prefill={callModalPrefill}
+        />
+      )}
+
+      {showOnboarding && user && (
+        <OnboardingModal
+          nomeUsuario={user.nome}
+          onConcluir={handleOnboardingConcluir}
         />
       )}
     </div>

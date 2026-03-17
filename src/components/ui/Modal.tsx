@@ -6,7 +6,7 @@ import { X } from 'lucide-react'
 interface Props {
   open: boolean
   onClose: () => void
-  title: string
+  title: React.ReactNode
   children: React.ReactNode
   width?: number | string
   footer?: React.ReactNode

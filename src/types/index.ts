@@ -37,11 +37,30 @@ export type MeetingLocal = 'presencial' | 'zoom' | 'meet' | 'telefone' | 'whatsa
 
 export type DiaSemana = 'segunda' | 'terca' | 'quarta' | 'quinta' | 'sexta' | 'sabado'
 
+export interface Script {
+  id: string
+  titulo: string
+  conteudo: string
+  tipo: 'abertura' | 'decisor' | 'secretaria' | 'fechamento'
+}
+
+export interface Objecao {
+  id: string
+  gatilho: string
+  resposta: string
+}
+
+export interface Nicho {
+  id: string
+  nome: string
+}
+
 export interface Call {
   id: string
   nome: string
   numero: string
   empresa: string
+  nicho: string
   status: CallStatus
   reuniaoAgendada: boolean
   reuniaoData: string | null
