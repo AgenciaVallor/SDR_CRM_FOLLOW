@@ -153,7 +153,7 @@ export default function Ranking({ user }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
-              {['Pos', 'Vendedor', 'Ligações', 'Meta%', 'Reuniões', 'Taxa Conv.', 'Último Registro'].map(h => (
+              {['Pos', 'SDR', 'Ligações', 'Meta%', 'Reuniões', 'Taxa Conv.', 'Último Registro'].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-syne font-bold" style={{ color: 'var(--muted)' }}>{h}</th>
               ))}
             </tr>

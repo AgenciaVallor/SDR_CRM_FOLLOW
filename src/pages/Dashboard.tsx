@@ -226,7 +226,7 @@ export default function Dashboard({ user: currentUser, isAdmin: isInitialAdmin, 
               color: 'var(--red)', fontSize: '13px', fontWeight: 600,
               display: 'flex', alignItems: 'center', gap: '10px',
             }}>
-              🚨 {vendedorStats.filter(v => v.alert === 'danger').length} vendedor(es) SEM atividade hoje em horário comercial
+              🚨 {vendedorStats.filter(v => v.alert === 'danger').length} SDR(es) SEM atividade hoje em horário comercial
             </div>
           )}
 

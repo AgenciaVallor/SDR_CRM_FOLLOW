@@ -108,22 +108,24 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
         }
 
         const isMaster = editingUser.email === 'valloragencia@gmail.com'
-        const updates: any = {
-          nome: form.nome.trim(),
-          email: isMaster ? editingUser.email : form.email.trim().toLowerCase(),
-          role: form.role,
-          avatar: form.avatar,
-          meta_ligacoes: form.metaDiariaLigacoes,
-          meta_reunioes: form.metaDiariaReunioes,
-          ativo: isMaster ? true : form.ativo,
-        }
         
-        const result = await updateUser(editingUser.id, updates, form.senha || undefined)
+        const { data, error } = await supabase.functions.invoke('update-user', {
+          body: {
+            userId: editingUser.id,
+            updates: {
+              nome: form.nome.trim(),
+              role: form.role,
+              avatar: form.avatar,
+              meta_ligacoes: form.metaDiariaLigacoes,
+              meta_reunioes: form.metaDiariaReunioes,
+              ativo: isMaster ? true : form.ativo,
+            },
+            novaSenha: form.senha.length >= 6 ? form.senha : undefined,
+          },
+        })
 
-        if (!result.success) {
-          setFormError(result.error || 'Erro ao atualizar usuário.')
-          return
-        }
+        if (error) { setFormError('Erro: ' + error.message); return }
+        if (data?.error) { setFormError(data.error); return }
 
         if (editingUser.id === session.userId && !form.ativo) {
           sessionStorage.removeItem('vallor_session')
@@ -269,7 +271,7 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
                   ? 'rgba(240,192,64,0.15)' : user.role === 'gerente' ? 'rgba(160,160,192,0.15)' : 'rgba(64,128,240,0.15)',
                 color: user.role === 'admin' ? 'var(--accent)' : user.role === 'gerente' ? '#a0a0c0' : 'var(--blue)',
               }}>
-                {user.role === 'admin' ? 'Admin' : user.role === 'gerente' ? 'Gerente' : 'Vendedor'}
+                {user.role === 'admin' ? 'Admin' : user.role === 'gerente' ? 'Gerente' : 'SDR'}
               </span>
 
               {/* Status badge */}
@@ -420,7 +422,7 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
                       fontSize: '13px', outline: 'none',
                     }}
                   >
-                    <option value="vendedor">Vendedor</option>
+                    <option value="vendedor">SDR</option>
                     <option value="gerente">Gerente</option>
                     <option value="admin">Administrador</option>
                   </select>

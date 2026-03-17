@@ -104,7 +104,7 @@ export default function MeuTime() {
           color: 'var(--red)', fontSize: '13px', fontWeight: 600,
           display: 'flex', alignItems: 'center', gap: '10px',
         }}>
-          🚨 {vendedores.filter(v => getAlertLevel(v.id) === 'danger').length} vendedor(es) sem atividade hoje em horário comercial.
+          🚨 {vendedores.filter(v => getAlertLevel(v.id) === 'danger').length} SDR(es) sem atividade hoje em horário comercial.
         </div>
       )}
 

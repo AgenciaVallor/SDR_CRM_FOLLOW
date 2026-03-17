@@ -142,7 +142,7 @@ export default function Sidebar({ page, setPage, user, onLogout, followupCount =
           <div className="min-w-0 flex-1">
             <div className="text-xs font-semibold truncate" style={{ color: 'var(--text)' }}>{user?.nome}</div>
             <div className="text-xs" style={{ color: 'var(--muted)' }}>
-              {isAdmin ? 'Admin' : isGerente ? 'Gerente' : 'Vendedor'}
+              {isAdmin ? 'Admin' : isGerente ? 'Gerente' : 'SDR'}
             </div>
           </div>
           <button
