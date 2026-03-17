@@ -1,6 +1,7 @@
 // src/components/layout/Sidebar.tsx
-import React from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
+import { ScriptPanel } from '../shared/ScriptPanel'
 import {
   LayoutDashboard, Calendar, Phone, Bell, Target,
   Users, Settings, Trophy, MessageSquare, Flame,
@@ -43,6 +44,7 @@ interface Props {
 
 export default function Sidebar({ page, setPage, user, onLogout, followupCount = 0 }: Props) {
   const isAdmin = user?.role === 'admin'
+  const [scriptOpen, setScriptOpen] = useState(false)
 
   return (
     <aside
@@ -89,6 +91,20 @@ export default function Sidebar({ page, setPage, user, onLogout, followupCount =
         )}
       </nav>
 
+      <div className="px-3 pb-4">
+        <button
+          onClick={() => setScriptOpen(true)}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold hover:brightness-110 transition-all font-dm"
+          style={{
+            background: 'var(--surface2)',
+            color: 'var(--accent)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          📋 Regras & Scripts
+        </button>
+      </div>
+
       {/* User footer */}
       <div className="p-3 border-t" style={{ borderColor: 'var(--border)' }}>
         <div className="flex items-center gap-3 rounded-lg p-2" style={{ background: 'var(--surface2)' }}>
@@ -113,6 +129,7 @@ export default function Sidebar({ page, setPage, user, onLogout, followupCount =
           </button>
         </div>
       </div>
+      <ScriptPanel isOpen={scriptOpen} onClose={() => setScriptOpen(false)} />
     </aside>
   )
 }

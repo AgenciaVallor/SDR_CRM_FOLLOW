@@ -77,19 +77,12 @@ function AppInner() {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const [showOnboarding, setShowOnboarding] = useState(() => {
-    const sessionStr = sessionStorage.getItem('vallor_session')
-    if (!sessionStr) return false
-    const userId = JSON.parse(sessionStr).userId
-    const seen = localStorage.getItem(`vallor_onboarding_${userId}`)
-    return !seen
+    const alreadySeenThisSession = sessionStorage.getItem('vallor_onboarding_shown')
+    return !alreadySeenThisSession
   })
 
   function handleOnboardingConcluir() {
-    const sessionStr = sessionStorage.getItem('vallor_session')
-    if (sessionStr) {
-      const userId = JSON.parse(sessionStr).userId
-      localStorage.setItem(`vallor_onboarding_${userId}`, 'true')
-    }
+    sessionStorage.setItem('vallor_onboarding_shown', 'true')
     setShowOnboarding(false)
   }
 
