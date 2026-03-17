@@ -1,32 +1,40 @@
-// src/pages/Login.tsx
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Phone, Lock, User, Eye, EyeOff } from 'lucide-react'
+import { loginUser } from '../utils/storage'
+import { User as UserType } from '../types'
 
 interface Props {
-  onLogin: (email: string, senha: string) => Promise<void>
-  loading?: boolean
-  error?: string
+  onLogin: (user: UserType) => void
 }
 
-export default function Login({ onLogin, loading, error }: Props) {
+export default function Login({ onLogin }: Props) {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [internalError, setInternalError] = useState('')
   const [shaking, setShaking] = useState(false)
+  const [loading, setLoading] = useState(false)
   
-  const displayError = error || internalError
+  const displayError = internalError
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setLoading(true)
     setInternalError('')
-    const cleanEmail = email.trim().toLowerCase()
-    await onLogin(cleanEmail, senha)
-    if (error || internalError) {
+    
+    // Clean email but keep password RAW
+    const user = await loginUser(email, senha)
+    
+    if (!user) {
+      setInternalError('Usuário ou senha incorretos.')
+      setLoading(false)
       setShaking(true)
       setTimeout(() => setShaking(false), 600)
+      return
     }
+    
+    onLogin(user)
   }
 
   return (

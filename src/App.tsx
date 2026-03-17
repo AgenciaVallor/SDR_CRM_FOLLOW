@@ -121,18 +121,8 @@ function AppInner() {
     setCallModalOpen(true)
   }, [])
 
-  async function handleLogin(email: string, senha: string) {
-    setLoginLoading(true)
-    setLoginError('')
-    const u = await login(email, senha)
-    if (u) {
-      // Need to sync local session after successful login
-      const session = await getCurrentSession()
-      setCurrentUser(session)
-    } else {
-      setLoginError('Usuário ou senha incorretos.')
-    }
-    setLoginLoading(false)
+  function handleLogin(u: User) {
+    setCurrentUser(u)
   }
 
   async function handleLogout() {
@@ -159,7 +149,7 @@ function AppInner() {
   if (!currentUser) {
     return (
       <AnimatePresence>
-        <Login onLogin={handleLogin} loading={loginLoading} error={loginError} />
+        <Login onLogin={handleLogin} />
       </AnimatePresence>
     )
   }

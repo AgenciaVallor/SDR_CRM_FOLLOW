@@ -10,22 +10,41 @@ export function genId(): string {
 // ── AUTH ────────────────────────────────────────────────
 
 export async function loginUser(email: string, senha: string): Promise<User | null> {
-  const cleanEmail = email.trim().toLowerCase()
-  const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: senha })
-  if (error || !data.user) return null
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password: senha,
+    })
 
-  const { data: userData } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', data.user.id)
-    .single()
+    if (error) {
+      console.error('[loginUser] error:', error.message)
+      return null
+    }
 
-  if (!userData || !userData.ativo) {
-    if (data.user) await supabase.auth.signOut()
+    if (!data.user) return null
+
+    const { data: userData, error: dbError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', data.user.id)
+      .single()
+
+    if (dbError || !userData) {
+      console.error('[loginUser] user not in public.users:', dbError?.message)
+      await supabase.auth.signOut()
+      return null
+    }
+
+    if (!userData.ativo) {
+      await supabase.auth.signOut()
+      return null
+    }
+
+    return mapDbUser(userData)
+  } catch (err) {
+    console.error('[loginUser] exception:', err)
     return null
   }
-
-  return mapDbUser(userData)
 }
 
 export async function logoutUser(): Promise<void> {
