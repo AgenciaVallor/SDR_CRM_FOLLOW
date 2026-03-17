@@ -144,10 +144,23 @@ export default function Ligacoes({ calls, user, isAdmin, onNewCall }: Props) {
           className="text-sm px-3 py-2 rounded-lg"
         >
           <option value="">Todos os status</option>
-          <option value="atendida">Atendida</option>
-          <option value="perdida">Perdida</option>
-          <option value="nao-atendeu">Não Atendeu</option>
-          <option value="caixa-postal">Caixa Postal</option>
+          <optgroup label="── CONTATO FEITO ──">
+            <option value="atendida">✅ Atendida</option>
+            <option value="conversa-iniciada">📞 Conversa Iniciada</option>
+            <option value="retornar-depois">⏰ Retornar Depois</option>
+            <option value="reuniao-agendada">🤝 Reunião Agendada</option>
+            <option value="follow-up">🔄 Follow-up</option>
+            <option value="contrato-assinado">✍️ Contrato Assinado</option>
+          </optgroup>
+          <optgroup label="── SEM CONTATO ──">
+            <option value="nao-atendeu">❌ Não Atendeu</option>
+            <option value="caixa-postal">📬 Caixa Postal</option>
+          </optgroup>
+          <optgroup label="── PERDIDO ──">
+            <option value="perdido-tem-empresa">🏳 Já Tem Empresa</option>
+            <option value="perdido-desqualificado">⛔ Desqualificado</option>
+            <option value="perdida">❌ Perdida</option>
+          </optgroup>
         </select>
         {isAdmin && (
           <select

@@ -1,209 +1,509 @@
 // src/pages/Usuarios.tsx
-import React, { useState, useMemo } from 'react'
-import { motion } from 'framer-motion'
-import { Plus, Edit2, Power } from 'lucide-react'
+import React, { useState } from 'react'
+import { getUsers, saveUsers, deleteUser } from '../utils/storage'
 import { User } from '../types'
-import { getUsers, addUser, updateUser, genId, getCalls } from '../utils/storage'
-import { Avatar } from '../components/ui/Avatar'
-import { Modal } from '../components/ui/Modal'
-import { Badge } from '../components/ui/Badge'
-import { useToast } from '../context/ToastContext'
-import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns'
 
-const COLORS = ['#f0c040','#4080f0','#8050d0','#e05a30','#30d090','#e04060']
+function generateId(): string {
+  return 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2)
+}
+
+const AVATAR_COLORS = [
+  '#f0c040', '#4080f0', '#30d090', '#e04060',
+  '#8050d0', '#e05a30', '#20a0c0', '#c060a0'
+]
 
 export default function Usuarios({ onReload }: { onReload?: () => void }) {
-  const [users, setUsers] = useState(() => getUsers())
-  const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState<User | null>(null)
-  const { success, error: toastError } = useToast()
-  
-  const [nome, setNome] = useState('')
-  const [email, setEmail] = useState('')
-  const [senha, setSenha] = useState('')
-  const [confirmaSenha, setConfirmaSenha] = useState('')
-  const [role, setRole] = useState<'admin'|'vendedor'>('vendedor')
-  const [avatar, setAvatar] = useState('#4080f0')
-  const [metaLig, setMetaLig] = useState('50')
-  const [metaReu, setMetaReu] = useState('5')
+  const [users, setUsers] = useState<User[]>(() => getUsers())
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [form, setForm] = useState({
+    nome: '', email: '', senha: '', confirmSenha: '',
+    role: 'vendedor' as 'admin' | 'vendedor',
+    metaDiariaLigacoes: 50, metaDiariaReunioes: 5,
+    avatar: '#f0c040', ativo: true,
+  })
+  const [formError, setFormError] = useState('')
 
-  const openNew = () => { 
-    setEditing(null);setNome('');setEmail('');setSenha('');setConfirmaSenha('');
-    setRole('vendedor');setAvatar('#4080f0');setMetaLig('50');setMetaReu('5');setOpen(true);
-  }
-  
-  const openEdit = (u: User) => { 
-    setEditing(u);setNome(u.nome);setEmail(u.email);setSenha(u.senha);setConfirmaSenha(u.senha);
-    setRole(u.role);setAvatar(u.avatar);setMetaLig(String(u.metaDiariaLigacoes));setMetaReu(String(u.metaDiariaReunioes));setOpen(true);
-  }
+  const session = JSON.parse(sessionStorage.getItem('vallor_session') || '{}')
 
-  const save = () => {
-    if (!nome || !email || !senha || !confirmaSenha) {
-      toastError('Preencha todos os campos obrigatórios.')
-      return
-    }
-    
-    if (senha.length < 6) {
-      toastError('A senha deve ter no mínimo 6 caracteres.')
-      return
-    }
-
-    if (senha !== confirmaSenha) {
-      toastError('As senhas não coincidem.')
-      return
-    }
-
-    const emailExists = users.some(u => u.email === email && (!editing || u.id !== editing.id))
-    if (emailExists) {
-      toastError('Este email já está cadastrado.')
-      return
-    }
-
-    if (editing) {
-      updateUser(editing.id, { nome, email, senha, role, avatar, metaDiariaLigacoes: +metaLig, metaDiariaReunioes: +metaReu })
-      success('Atualizado!')
-    } else { 
-      addUser({ id: genId(), nome, email, senha, role, avatar, metaDiariaLigacoes: +metaLig, metaDiariaReunioes: +metaReu, ativo: true, criadoEm: Date.now() })
-      success('Criado!') 
-    }
+  function refreshUsers() {
     setUsers(getUsers())
-    setOpen(false)
     onReload?.()
   }
 
-  const toggle = (u: User) => { 
-    if (u.id === 'u-master') return
-    updateUser(u.id, { ativo: !u.ativo })
-    setUsers(getUsers()) 
+  function openCreate() {
+    setEditingUser(null)
+    setForm({
+      nome: '', email: '', senha: '', confirmSenha: '',
+      role: 'vendedor', metaDiariaLigacoes: 50,
+      metaDiariaReunioes: 5, avatar: '#f0c040', ativo: true,
+    })
+    setFormError('')
+    setModalOpen(true)
   }
 
-  const totalCallsByOperador = useMemo(() => {
-    const s = startOfMonth(new Date()).getTime()
-    const e = endOfMonth(new Date()).getTime()
-    const calls = getCalls().filter(c => c.timestamp >= s && c.timestamp <= e)
-    const map: Record<string, number> = {}
-    calls.forEach(c => map[c.operadorId] = (map[c.operadorId] || 0) + 1)
-    return map
-  }, [users])
+  function openEdit(user: User) {
+    setEditingUser(user)
+    setForm({
+      nome: user.nome, email: user.email, senha: '', confirmSenha: '',
+      role: user.role, metaDiariaLigacoes: user.metaDiariaLigacoes,
+      metaDiariaReunioes: user.metaDiariaReunioes ?? 5,
+      avatar: user.avatar, ativo: user.ativo,
+    })
+    setFormError('')
+    setModalOpen(true)
+  }
+
+  function handleSave() {
+    setFormError('')
+
+    if (!form.nome.trim()) { setFormError('Nome é obrigatório.'); return }
+    if (!form.email.trim()) { setFormError('Email é obrigatório.'); return }
+
+    const all = getUsers()
+
+    if (!editingUser) {
+      if (all.find(u => u.email === form.email.trim().toLowerCase())) {
+        setFormError('Este email já está cadastrado.'); return
+      }
+      if (!form.senha || form.senha.length < 6) {
+        setFormError('Senha obrigatória com mínimo 6 caracteres.'); return
+      }
+      if (form.senha !== form.confirmSenha) {
+        setFormError('As senhas não coincidem.'); return
+      }
+
+      const newUser: User = {
+        id: generateId(),
+        nome: form.nome.trim(),
+        email: form.email.trim().toLowerCase(),
+        senha: form.senha,
+        role: form.role,
+        avatar: form.avatar,
+        metaDiariaLigacoes: form.metaDiariaLigacoes,
+        metaDiariaReunioes: form.metaDiariaReunioes,
+        ativo: true,
+        criadoEm: Date.now(),
+      }
+      saveUsers([...all, newUser])
+    } else {
+      const duplicate = all.find(
+        u => u.email === form.email.trim().toLowerCase() && u.id !== editingUser.id
+      )
+      if (duplicate) { setFormError('Este email já está em uso.'); return }
+
+      if (form.senha && form.senha.length < 6) {
+        setFormError('Nova senha precisa ter mínimo 6 caracteres.'); return
+      }
+      if (form.senha && form.senha !== form.confirmSenha) {
+        setFormError('As senhas não coincidem.'); return
+      }
+
+      const updated = all.map(u => {
+        if (u.id !== editingUser.id) return u
+        // Master admin: cannot change email or ativo
+        const isMaster = u.email === 'valloragencia@gmail.com'
+        return {
+          ...u,
+          nome: form.nome.trim(),
+          email: isMaster ? u.email : form.email.trim().toLowerCase(),
+          senha: form.senha ? form.senha : u.senha,
+          role: form.role,
+          avatar: form.avatar,
+          metaDiariaLigacoes: form.metaDiariaLigacoes,
+          metaDiariaReunioes: form.metaDiariaReunioes,
+          ativo: isMaster ? true : form.ativo,
+        }
+      })
+      saveUsers(updated)
+
+      // If admin deactivated current session user, force logout
+      if (editingUser.id === session.userId && !form.ativo) {
+        sessionStorage.removeItem('vallor_session')
+        window.location.href = '/'
+        return
+      }
+    }
+
+    refreshUsers()
+    setModalOpen(false)
+  }
+
+  function handleDelete(user: User) {
+    if (user.email === 'valloragencia@gmail.com') {
+      alert('O administrador master não pode ser excluído.')
+      return
+    }
+    if (user.id === session.userId) {
+      alert('Você não pode excluir sua própria conta.')
+      return
+    }
+    const confirmed = confirm(
+      `Excluir "${user.nome}"?\n\nEsta ação remove o acesso imediatamente. O usuário não conseguirá mais entrar no sistema.`
+    )
+    if (!confirmed) return
+
+    deleteUser(user.id)
+    refreshUsers()
+  }
+
+  function handleToggleAtivo(user: User) {
+    if (user.email === 'valloragencia@gmail.com') return
+
+    const all = getUsers()
+    const updated = all.map(u =>
+      u.id === user.id ? { ...u, ativo: !u.ativo } : u
+    )
+    saveUsers(updated)
+    refreshUsers()
+  }
 
   return (
-    <div className="p-6 font-dm">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-syne font-black text-xl" style={{color:'var(--text)'}}>Usuários</h1>
-        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-syne font-bold hover:scale-105 transition-transform" style={{background:'var(--accent)',color:'#0a0a0f'}}>
-          <Plus size={14}/> Novo Colaborador
+    <div style={{ padding: '32px' }}>
+
+      {/* Page header */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between',
+        alignItems: 'flex-start', marginBottom: '28px', flexWrap: 'wrap', gap: '16px'
+      }}>
+        <div>
+          <div style={{
+            fontFamily: 'Syne, sans-serif', fontWeight: 800,
+            fontSize: '26px', letterSpacing: '-0.5px', color: 'var(--text)'
+          }}>
+            Usuários
+          </div>
+          <div style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '4px' }}>
+            Gerencie colaboradores e permissões de acesso.
+          </div>
+        </div>
+        <button
+          onClick={openCreate}
+          style={{
+            padding: '9px 20px', borderRadius: '8px',
+            background: 'var(--accent)', border: 'none',
+            color: '#0a0a0f', fontWeight: 700, fontSize: '13px',
+            cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+          }}
+        >
+          + Novo Colaborador
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {users.map(u => (
-          <div key={u.id} className="rounded-2xl border p-5 flex items-start gap-4 transition-all" style={{background:'var(--surface)',borderColor:'var(--border)',opacity:u.ativo?1:0.55}}>
-            <Avatar nome={u.nome} color={u.avatar} size={48} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <p className="font-syne font-bold" style={{color:'var(--text)'}}>{u.nome}</p>
-                <Badge color={u.role==='admin'?'var(--accent)':'var(--blue)'}>{u.role === 'admin' ? 'Administrador' : 'Vendedor'}</Badge>
-                {!u.ativo && <Badge color="var(--red)">Inativo</Badge>}
-                {u.id === 'u-master' && <Badge color="var(--green)">Master</Badge>}
+      {/* Users list */}
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--border)',
+        borderRadius: '10px', overflow: 'hidden'
+      }}>
+        {users.map((user, i) => {
+          const isMaster = user.email === 'valloragencia@gmail.com'
+          const isCurrentUser = user.id === session.userId
+          return (
+            <div
+              key={user.id}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '14px',
+                padding: '14px 20px',
+                borderBottom: i < users.length - 1 ? '1px solid var(--border)' : 'none',
+                opacity: user.ativo ? 1 : 0.55,
+              }}
+            >
+              {/* Avatar */}
+              <div style={{
+                width: '38px', height: '38px', borderRadius: '50%',
+                background: user.avatar, display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'Syne, sans-serif', fontWeight: 800,
+                fontSize: '15px', color: '#0a0a0f', flexShrink: 0,
+              }}>
+                {user.nome[0].toUpperCase()}
               </div>
-              <p className="text-xs" style={{color:'var(--muted)'}}>{u.email}</p>
-              <div className="flex items-center gap-4 mt-2">
-                <p className="text-xs" style={{color:'var(--muted)'}}>Meta: {u.metaDiariaLigacoes} lig • {u.metaDiariaReunioes} reu/dia</p>
-                <p className="text-xs" style={{color:'var(--accent)'}}>{totalCallsByOperador[u.id] || 0} lig. neste mês</p>
+
+              {/* Info */}
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text)' }}>
+                  {user.nome}
+                  {isCurrentUser && (
+                    <span style={{
+                      fontSize: '10px', color: 'var(--muted)',
+                      marginLeft: '8px', fontWeight: 400
+                    }}>
+                      (você)
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
+                  {user.email}
+                </div>
               </div>
+
+              {/* Role badge */}
+              <span style={{
+                padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
+                background: user.role === 'admin'
+                  ? 'rgba(240,192,64,0.15)' : 'rgba(64,128,240,0.15)',
+                color: user.role === 'admin' ? 'var(--accent)' : 'var(--blue)',
+              }}>
+                {user.role === 'admin' ? 'Admin' : 'Vendedor'}
+              </span>
+
+              {/* Status badge */}
+              <span style={{
+                padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
+                background: user.ativo
+                  ? 'rgba(48,208,144,0.15)' : 'rgba(224,64,96,0.15)',
+                color: user.ativo ? 'var(--green)' : 'var(--red)',
+              }}>
+                {user.ativo ? 'Ativo' : 'Inativo'}
+              </span>
+
+              {/* Meta */}
+              <span style={{ fontSize: '11px', color: 'var(--muted)', minWidth: '80px', textAlign: 'right' }}>
+                {user.metaDiariaLigacoes} lig/dia
+              </span>
+
+              {/* Actions */}
+              {!isMaster && (
+                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                  <button
+                    onClick={() => openEdit(user)}
+                    style={{
+                      padding: '5px 12px', borderRadius: '7px', fontSize: '12px',
+                      fontWeight: 600, cursor: 'pointer',
+                      background: 'var(--surface2)', border: '1px solid var(--border)',
+                      color: 'var(--text)', fontFamily: 'DM Sans, sans-serif',
+                    }}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => handleToggleAtivo(user)}
+                    style={{
+                      padding: '5px 12px', borderRadius: '7px', fontSize: '12px',
+                      fontWeight: 600, cursor: 'pointer',
+                      background: user.ativo
+                        ? 'rgba(224,64,96,0.1)' : 'rgba(48,208,144,0.1)',
+                      border: `1px solid ${user.ativo
+                        ? 'rgba(224,64,96,0.3)' : 'rgba(48,208,144,0.3)'}`,
+                      color: user.ativo ? 'var(--red)' : 'var(--green)',
+                      fontFamily: 'DM Sans, sans-serif',
+                    }}
+                  >
+                    {user.ativo ? 'Desativar' : 'Reativar'}
+                  </button>
+                  {!isCurrentUser && (
+                    <button
+                      onClick={() => handleDelete(user)}
+                      style={{
+                        padding: '5px 12px', borderRadius: '7px', fontSize: '12px',
+                        fontWeight: 600, cursor: 'pointer',
+                        background: 'rgba(224,64,96,0.1)',
+                        border: '1px solid rgba(224,64,96,0.3)',
+                        color: 'var(--red)', fontFamily: 'DM Sans, sans-serif',
+                      }}
+                    >
+                      Excluir
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => openEdit(u)} 
-                className="w-8 h-8 rounded-lg flex items-center justify-center border hover:bg-white/5 transition-colors" 
-                style={{borderColor:'var(--border)',color:'var(--muted)'}}
-              >
-                <Edit2 size={13}/>
-              </button>
-              <button 
-                onClick={() => toggle(u)} 
-                disabled={u.id === 'u-master'}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-colors ${u.id === 'u-master' ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/5'}`}
-                style={{borderColor:'var(--border)',color:u.ativo?'var(--red)':'var(--green)'}}
-                title={u.id === 'u-master' ? 'Administrador Master não pode ser inativado' : u.ativo ? 'Desativar usuário' : 'Ativar usuário'}
-              >
-                <Power size={13}/>
-              </button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
-      <Modal open={open} onClose={()=>setOpen(false)} title={editing?'Editar Colaborador':'Novo Colaborador'} width={480}
-        footer={<>
-          <button onClick={()=>setOpen(false)} className="px-4 py-2 rounded-lg text-sm border font-dm hover:bg-white/5" style={{borderColor:'var(--border)',color:'var(--muted)'}}>Cancelar</button>
-          <button onClick={save} className="px-6 py-2 rounded-lg text-sm font-syne font-bold hover:scale-105 transition-transform" style={{background:'var(--accent)',color:'#0a0a0f'}}>Salvar Colaborador</button>
-        </>}
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs mb-1 block font-bold" style={{color:'var(--muted)'}}>Nome completo *</label>
-              <input value={nome} onChange={e=>setNome(e.target.value)} className="w-full text-sm" placeholder="Ex: João Silva"/>
+      {/* Modal create / edit */}
+      {modalOpen && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+            zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={e => { if (e.target === e.currentTarget) setModalOpen(false) }}
+        >
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: '14px', width: '480px', maxWidth: '95vw',
+            maxHeight: '90vh', overflowY: 'auto',
+            boxShadow: '0 40px 80px rgba(0,0,0,0.7)',
+          }}>
+            {/* Modal header */}
+            <div style={{
+              padding: '20px 24px 18px', borderBottom: '1px solid var(--border)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 10,
+            }}>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '18px', color: 'var(--text)' }}>
+                {editingUser ? 'Editar Colaborador' : 'Novo Colaborador'}
+              </div>
+              <button
+                onClick={() => setModalOpen(false)}
+                style={{
+                  width: 30, height: 30, background: 'var(--surface2)',
+                  border: '1px solid var(--border)', borderRadius: '7px',
+                  color: 'var(--text)', cursor: 'pointer', fontSize: '14px',
+                }}
+              >✕</button>
             </div>
-            <div>
-              <label className="text-xs mb-1 block font-bold" style={{color:'var(--muted)'}}>E-mail *</label>
-              <input 
-                type="email" 
-                value={email} 
-                onChange={e=>setEmail(e.target.value)} 
-                className="w-full text-sm" 
-                disabled={editing?.id === 'u-master'}
-                placeholder="nome@empresa.com"
-                style={{ opacity: editing?.id === 'u-master' ? 0.6 : 1 }}
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs mb-1 block font-bold" style={{color:'var(--muted)'}}>Senha *</label>
-              <input type="password" value={senha} onChange={e=>setSenha(e.target.value)} className="w-full text-sm" placeholder="Mínimo 6 caracteres"/>
-            </div>
-            <div>
-              <label className="text-xs mb-1 block font-bold" style={{color:'var(--muted)'}}>Confirmação de Senha *</label>
-              <input type="password" value={confirmaSenha} onChange={e=>setConfirmaSenha(e.target.value)} className="w-full text-sm" placeholder="Digite a senha novamente"/>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="text-xs mb-1 block font-bold" style={{color:'var(--muted)'}}>Papel</label>
-              <select value={role} disabled={editing?.id === 'u-master'} onChange={e=>setRole(e.target.value as any)} className="w-full text-sm cursor-pointer" style={{ opacity: editing?.id === 'u-master' ? 0.6 : 1 }}>
-                <option value="vendedor">Vendedor</option>
-                <option value="admin">Administrador</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs mb-1 block font-bold" style={{color:'var(--muted)'}}>Meta Ligações</label>
-              <input type="number" min="1" value={metaLig} onChange={e=>setMetaLig(e.target.value)} className="w-full text-sm"/>
-            </div>
-            <div>
-              <label className="text-xs mb-1 block font-bold" style={{color:'var(--muted)'}}>Meta Reuniões</label>
-              <input type="number" min="1" value={metaReu} onChange={e=>setMetaReu(e.target.value)} className="w-full text-sm"/>
-            </div>
-          </div>
+            {/* Modal body */}
+            <div style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
-          <div>
-            <label className="text-xs mb-2 block font-bold" style={{color:'var(--muted)'}}>Cor do Avatar</label>
-            <div className="flex gap-2">
-              {COLORS.map(c => (
-                <button 
-                  key={c} 
-                  onClick={() => setAvatar(c)} 
-                  className="w-8 h-8 rounded-full border-2 transition-all hover:scale-110" 
-                  style={{background:c, borderColor: avatar === c ? '#fff' : 'transparent', transform: avatar === c ? 'scale(1.15)' : 'scale(1)'}}
-                />
+              {[
+                { label: 'Nome Completo *', key: 'nome', type: 'text', placeholder: 'Ex: João Silva' },
+                { label: 'Email (login) *', key: 'email', type: 'email', placeholder: 'joao@email.com' },
+                { label: editingUser ? 'Nova Senha (deixe em branco para manter)' : 'Senha * (mínimo 6 caracteres)', key: 'senha', type: 'password', placeholder: '••••••••' },
+                { label: 'Confirmar Senha', key: 'confirmSenha', type: 'password', placeholder: '••••••••' },
+              ].map(field => (
+                <div key={field.key}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '1px', color: 'var(--muted)', marginBottom: '6px' }}>
+                    {field.label}
+                  </div>
+                  <input
+                    type={field.type}
+                    placeholder={field.placeholder}
+                    value={(form as Record<string, unknown>)[field.key] as string}
+                    onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}
+                    disabled={field.key === 'email' && editingUser?.email === 'valloragencia@gmail.com'}
+                    style={{
+                      width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)',
+                      borderRadius: '8px', padding: '10px 14px', color: 'var(--text)',
+                      fontSize: '13px', outline: 'none', fontFamily: 'DM Sans, sans-serif',
+                      boxSizing: 'border-box', opacity: (field.key === 'email' && editingUser?.email === 'valloragencia@gmail.com') ? 0.5 : 1,
+                    }}
+                  />
+                </div>
               ))}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '1px', color: 'var(--muted)', marginBottom: '6px' }}>
+                    Papel
+                  </div>
+                  <select
+                    value={form.role}
+                    onChange={e => setForm(f => ({ ...f, role: e.target.value as 'admin' | 'vendedor' }))}
+                    disabled={editingUser?.email === 'valloragencia@gmail.com'}
+                    style={{
+                      width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)',
+                      borderRadius: '8px', padding: '10px 14px', color: 'var(--text)',
+                      fontSize: '13px', outline: 'none',
+                    }}
+                  >
+                    <option value="vendedor">Vendedor</option>
+                    <option value="admin">Administrador</option>
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '1px', color: 'var(--muted)', marginBottom: '6px' }}>
+                    Meta Diária de Ligações
+                  </div>
+                  <input
+                    type="number"
+                    value={form.metaDiariaLigacoes}
+                    onChange={e => setForm(f => ({ ...f, metaDiariaLigacoes: Number(e.target.value) }))}
+                    style={{
+                      width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)',
+                      borderRadius: '8px', padding: '10px 14px', color: 'var(--text)',
+                      fontSize: '13px', outline: 'none', boxSizing: 'border-box' as const,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Avatar color picker */}
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '1px', color: 'var(--muted)', marginBottom: '8px' }}>
+                  Cor do Avatar
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' as const }}>
+                  {AVATAR_COLORS.map(color => (
+                    <div
+                      key={color}
+                      onClick={() => setForm(f => ({ ...f, avatar: color }))}
+                      style={{
+                        width: '32px', height: '32px', borderRadius: '50%',
+                        background: color, cursor: 'pointer',
+                        border: form.avatar === color
+                          ? '3px solid var(--text)' : '3px solid transparent',
+                        transition: 'border 0.15s',
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Ativo toggle (edit only, not for master) */}
+              {editingUser && editingUser.email !== 'valloragencia@gmail.com' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>Conta ativa</div>
+                  <div
+                    onClick={() => setForm(f => ({ ...f, ativo: !f.ativo }))}
+                    style={{
+                      width: '44px', height: '24px', borderRadius: '12px',
+                      background: form.ativo ? 'var(--green)' : 'var(--surface3)',
+                      cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <div style={{
+                      position: 'absolute', top: '3px',
+                      left: form.ativo ? '23px' : '3px',
+                      width: '18px', height: '18px', borderRadius: '50%',
+                      background: 'white', transition: 'left 0.2s',
+                    }} />
+                  </div>
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                    {form.ativo ? 'Ativo — pode entrar no sistema' : 'Inativo — sem acesso ao sistema'}
+                  </span>
+                </div>
+              )}
+
+              {formError && (
+                <div style={{
+                  padding: '10px 14px', background: 'rgba(224,64,96,0.1)',
+                  border: '1px solid rgba(224,64,96,0.3)', borderRadius: '8px',
+                  color: 'var(--red)', fontSize: '13px',
+                }}>
+                  ⚠️ {formError}
+                </div>
+              )}
+            </div>
+
+            {/* Modal footer */}
+            <div style={{
+              padding: '16px 24px', borderTop: '1px solid var(--border)',
+              display: 'flex', gap: '10px', justifyContent: 'flex-end',
+              position: 'sticky', bottom: 0, background: 'var(--surface)',
+            }}>
+              <button
+                onClick={() => setModalOpen(false)}
+                style={{
+                  padding: '8px 18px', borderRadius: '8px', background: 'var(--surface2)',
+                  border: '1px solid var(--border)', color: 'var(--text)',
+                  cursor: 'pointer', fontSize: '13px', fontWeight: 600,
+                  fontFamily: 'DM Sans, sans-serif',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSave}
+                style={{
+                  padding: '8px 18px', borderRadius: '8px',
+                  background: 'var(--accent)', border: 'none',
+                  color: '#0a0a0f', cursor: 'pointer',
+                  fontSize: '13px', fontWeight: 700,
+                  fontFamily: 'DM Sans, sans-serif',
+                }}
+              >
+                {editingUser ? 'Salvar Alterações' : 'Criar Colaborador'}
+              </button>
             </div>
           </div>
         </div>
-      </Modal>
+      )}
     </div>
   )
 }

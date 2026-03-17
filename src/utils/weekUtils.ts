@@ -171,3 +171,5 @@ export function isWeekday(date: Date): boolean {
 export function dayOfWeekIndex(dateStr: string): 0|1|2|3|4|5|6 {
   return parseISO(dateStr).getDay() as 0|1|2|3|4|5|6
 }
+
+export const fmtBR = formatDatePtBR

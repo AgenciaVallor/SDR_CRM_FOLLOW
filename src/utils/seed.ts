@@ -153,6 +153,8 @@ function makeCall(
     diaSemana: d.getDay() as 0|1|2|3|4|5|6,
     semanaKey: getWeekKey(d),
     mes: format(d, 'yyyy-MM'),
+    tentativas: 1,
+    periodo: '',
   }
 }
 

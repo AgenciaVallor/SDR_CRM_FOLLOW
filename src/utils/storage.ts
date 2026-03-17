@@ -57,16 +57,15 @@ const MASTER_ADMIN: User = {
 }
 
 // ─── Users ────────────────────────────────────────────────────────────────────
-export const getUsers = (): User[] => {
-  const users = getItem<User>(KEYS.users)
-  const masterExists = users.some(u => u.email === 'valloragencia@gmail.com')
-  if (!masterExists) {
-    const updatedUsers = [...users, MASTER_ADMIN]
-    setItem(KEYS.users, updatedUsers)
-    return updatedUsers
-  }
-  return users
-}
+export const getUsers = (): User[] =>
+  JSON.parse(localStorage.getItem(KEYS.users) || '[]')
+
+export const saveUsers = (users: User[]): void =>
+  localStorage.setItem(KEYS.users, JSON.stringify(users))
+
+export const deleteUser = (id: string): void =>
+  saveUsers(getUsers().filter(u => u.id !== id))
+
 export const setUsers = (users: User[]): void => setItem(KEYS.users, users)
 export const addUser = (u: User): void => setUsers([...getUsers(), u])
 export const updateUser = (id: string, patch: Partial<User>): void => {
@@ -90,12 +89,20 @@ export const getUserById = (id: string): User | undefined => getUsers().find(u =
 // ─── Calls ────────────────────────────────────────────────────────────────────
 export const getCalls = (): Call[] => getItem<Call>(KEYS.calls)
 export const setCalls = (calls: Call[]): void => setItem(KEYS.calls, calls)
+export const saveCalls = setCalls
 export const addCall = (c: Call): void => setCalls([...getCalls(), c])
 export const updateCall = (id: string, patch: Partial<Call>): void => {
   setCalls(getCalls().map(c => c.id === id ? { ...c, ...patch } : c))
 }
 export const deleteCall = (id: string): void => {
   setCalls(getCalls().filter(c => c.id !== id))
+}
+
+export function getTentativas(numero: string, operadorId: string): number {
+  const limpo = numero.replace(/\D/g, '')
+  return getCalls().filter(
+    c => c.numero.replace(/\D/g, '') === limpo && c.operadorId === operadorId
+  ).length
 }
 
 // ─── Leads ────────────────────────────────────────────────────────────────────

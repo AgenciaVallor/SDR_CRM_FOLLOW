@@ -20,3 +20,6 @@ export const DIAS_CURTO = {
   sexta: 'SEX',
   sabado: 'SÁB',
 }
+
+// Re-export from formatters so imports from constants also work
+export { STATUS_LABELS, STATUS_COLORS, STATUS_GRUPOS } from './formatters'

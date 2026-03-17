@@ -32,6 +32,24 @@ import Configuracoes from './pages/Configuracoes'
 // Run seed before first render
 runSeed()
 
+function validateSession(): boolean {
+  const raw = sessionStorage.getItem('vallor_session')
+  if (!raw) return false
+  try {
+    const session = JSON.parse(raw)
+    const users = getUsers()
+    const user = users.find(u => u.id === session.userId)
+    if (!user || !user.ativo) {
+      sessionStorage.removeItem('vallor_session')
+      return false
+    }
+    return true
+  } catch {
+    sessionStorage.removeItem('vallor_session')
+    return false
+  }
+}
+
 export default function App() {
   return (
     <ToastProvider>
@@ -42,6 +60,10 @@ export default function App() {
 
 function AppInner() {
   const { session, user, login, logout, isAdmin } = useAuth()
+  
+  // Validate session on every protected render
+  const isSessionValid = validateSession()
+
   const [page, setPage] = useState('dashboard')
   const [callModalOpen, setCallModalOpen] = useState(false)
   const [callModalPrefill, setCallModalPrefill] = useState<any>(null)
@@ -81,7 +103,7 @@ function AppInner() {
     reloadCalls()
   }, [addCall, reloadCalls])
 
-  if (!session || !user) {
+  if (!session || !user || !isSessionValid) {
     return (
       <AnimatePresence>
         <Login onLogin={login} />

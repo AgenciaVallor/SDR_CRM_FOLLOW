@@ -7,7 +7,7 @@ import { ProgressBar } from '../components/ui/ProgressBar'
 import { Avatar } from '../components/ui/Avatar'
 import { User, Call } from '../types'
 import { getUsers, getCalls } from '../utils/storage'
-import { formatCurrency, formatRelativeTime } from '../utils/formatters'
+import { formatCurrency, formatRelativeTime, STATUS_GRUPOS } from '../utils/formatters'
 import { format, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -42,7 +42,10 @@ export default function Dashboard({ user, isAdmin, calls, pipelineValue, alerts,
   }), [calls, user.id, today])
 
   const todayLigacoes = todayCalls.length
-  const todayReunioes = todayCalls.filter(c => c.reuniaoAgendada).length
+  const todayAtendidas = todayCalls.filter(c => STATUS_GRUPOS.positivo.includes(c.status)).length
+  const todayPerdidas  = todayCalls.filter(c => STATUS_GRUPOS.perdido.includes(c.status)).length
+  const todayContratos = todayCalls.filter(c => c.status === 'contrato-assinado').length
+  const todayReunioes  = todayCalls.filter(c => c.reuniaoAgendada).length
   const todayTaxa = todayLigacoes > 0 ? Math.round((todayReunioes / todayLigacoes) * 100) : 0
 
   // Chart data - last 14 days
@@ -55,9 +58,9 @@ export default function Dashboard({ user, isAdmin, calls, pipelineValue, alerts,
       })
       return {
         date: format(subDays(new Date(), 13 - i), 'dd/MM', { locale: ptBR }),
-        atendidas:   dayCalls.filter(c => c.status === 'atendida').length,
-        perdidas:    dayCalls.filter(c => c.status === 'perdida').length,
-        naoAtendeu:  dayCalls.filter(c => c.status !== 'atendida' && c.status !== 'perdida').length,
+        atendidas:   dayCalls.filter(c => STATUS_GRUPOS.positivo.includes(c.status)).length,
+        perdidas:    dayCalls.filter(c => STATUS_GRUPOS.perdido.includes(c.status)).length,
+        naoAtendeu:  dayCalls.filter(c => STATUS_GRUPOS.semContato.includes(c.status)).length,
         reunioes:    dayCalls.filter(c => c.reuniaoAgendada).length,
         total:       dayCalls.length,
       }
@@ -119,22 +122,20 @@ export default function Dashboard({ user, isAdmin, calls, pipelineValue, alerts,
       suffix: '/ 5'
     },
     {
-      label: 'Taxa de Conversão',
-      value: todayTaxa,
-      max: 100,
-      icon: TrendingUp,
-      color: todayTaxa >= 10 ? '#30d090' : '#f0c040',
-      suffix: '%',
-      noBar: true
+      label: 'Positivos Hoje',
+      value: todayAtendidas,
+      max: todayLigacoes || 1,
+      icon: CheckCircle2,
+      color: '#30d090',
+      suffix: ` / ${todayLigacoes}`,
     },
     {
-      label: 'Valor no Pipeline',
-      value: null,
-      max: 100,
-      icon: DollarSign,
-      color: '#4080f0',
-      display: formatCurrency(pipelineValue),
-      noBar: true
+      label: 'Contratos',
+      value: todayContratos,
+      max: 10,
+      icon: TrendingUp,
+      color: '#8050d0',
+      suffix: '',
     },
   ]
 
@@ -160,10 +161,10 @@ export default function Dashboard({ user, isAdmin, calls, pipelineValue, alerts,
                 </div>
               </div>
               <div className="font-syne font-black text-3xl" style={{ color: k.color }}>
-                {k.display ?? k.value}{k.suffix}
+                {k.value}{k.suffix}
               </div>
               <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>meta: 50 lig • 5 reuniões</p>
-              {!k.noBar && k.value !== null && (
+              {k.value !== null && (
                 <div className="mt-3">
                   <ProgressBar value={(k.value / k.max) * 100} color={k.color} height={4} />
                 </div>

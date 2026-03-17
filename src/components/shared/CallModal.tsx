@@ -6,7 +6,7 @@ import { Modal } from '../ui/Modal'
 import { Call, CallStatus, MeetingLocal, ChecklistCall } from '../../types'
 import { formatPhone } from '../../utils/formatters'
 import { openWhatsApp } from '../../utils/whatsapp'
-import { getLeads } from '../../utils/storage'
+import { getLeads, getTentativas } from '../../utils/storage'
 import { genId } from '../../utils/storage'
 import { getWeekKey, dayOfWeekIndex, todayStr } from '../../utils/weekUtils'
 import { getISOWeekYear, getISOWeek, format } from 'date-fns'
@@ -22,12 +22,37 @@ interface Props {
   prefill?: Partial<Call>
 }
 
-const STATUS_OPTS: { value: CallStatus; label: string; icon: string; color: string }[] = [
-  { value: 'atendida',      label: 'Atendida',       icon: '✅', color: '#30d090' },
-  { value: 'perdida',       label: 'Perdida',        icon: '❌', color: '#e04060' },
-  { value: 'nao-atendeu',  label: 'Não Atendeu',    icon: '📵', color: '#f0c040' },
-  { value: 'caixa-postal', label: 'Caixa Postal',   icon: '📬', color: '#7070a0' },
+// ─── Status groups with colors ────────────────────────────────────────────────
+const STATUS_POSITIVO: { value: CallStatus; label: string; icon: string }[] = [
+  { value: 'atendida',          label: 'Atendida',          icon: '✅' },
+  { value: 'conversa-iniciada', label: 'Conversa Iniciada', icon: '📞' },
+  { value: 'retornar-depois',   label: 'Retornar Depois',   icon: '⏰' },
+  { value: 'reuniao-agendada',  label: 'Reunião Agendada',  icon: '🤝' },
+  { value: 'follow-up',         label: 'Follow-up',         icon: '🔄' },
+  { value: 'contrato-assinado', label: 'Contrato Assinado', icon: '✍️' },
 ]
+
+const STATUS_SEM_CONTATO: { value: CallStatus; label: string; icon: string }[] = [
+  { value: 'nao-atendeu',  label: 'Não Atendeu', icon: '❌' },
+  { value: 'caixa-postal', label: 'Caixa Postal', icon: '📬' },
+]
+
+const STATUS_PERDIDO: { value: CallStatus; label: string; icon: string }[] = [
+  { value: 'perdido-tem-empresa',    label: 'Já Tem Empresa', icon: '🏳' },
+  { value: 'perdido-desqualificado', label: 'Desqualificado',  icon: '⛔' },
+  { value: 'perdida',                label: 'Perdida',         icon: '❌' },
+]
+
+// Colors per group
+const GREEN  = '#30d090'
+const YELLOW = '#f0c040'
+const RED    = '#e04060'
+
+function statusGroupColor(status: CallStatus): string {
+  if (STATUS_POSITIVO.some(s => s.value === status))   return GREEN
+  if (STATUS_SEM_CONTATO.some(s => s.value === status)) return YELLOW
+  return RED
+}
 
 const LOCAL_OPTS: { value: MeetingLocal; label: string }[] = [
   { value: 'presencial', label: 'Presencial' },
@@ -45,6 +70,14 @@ const CHECKLIST_ITEMS: { key: keyof ChecklistCall; label: string }[] = [
   { key: 'solicitouRetorno',    label: 'Solicitou retorno/material' },
 ]
 
+type Periodo = 'manha' | 'tarde' | 'noite' | ''
+
+const PERIODO_OPTS: { value: Periodo; label: string; icon: string }[] = [
+  { value: 'manha', label: 'Manhã',  icon: '🌅' },
+  { value: 'tarde', label: 'Tarde',  icon: '🌆' },
+  { value: 'noite', label: 'Noite',  icon: '🌙' },
+]
+
 export default function CallModal({ open, onClose, onSave, userId, userName, todayStats, prefill }: Props) {
   const { success, fire } = useToast()
 
@@ -52,6 +85,7 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
   const [numero, setNumero] = useState(prefill?.numero ?? '')
   const [empresa, setEmpresa] = useState(prefill?.empresa ?? '')
   const [status, setStatus] = useState<CallStatus>(prefill?.status ?? 'atendida')
+  const [periodo, setPeriodo] = useState<Periodo>(prefill?.periodo ?? '')
   const [anotacao, setAnotacao] = useState(prefill?.anotacao ?? '')
   const [checklist, setChecklist] = useState<ChecklistCall>({
     apresentouProposta: false,
@@ -77,6 +111,10 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
   const filteredLeads = leadSearch.length > 1
     ? leads.filter(l => l.nome.toLowerCase().includes(leadSearch.toLowerCase()) || l.empresa.toLowerCase().includes(leadSearch.toLowerCase()))
     : []
+
+  // Tentativas counter
+  const numeroLimpo = numero.replace(/\D/g, '')
+  const tentativasAnteriores = numeroLimpo.length >= 8 ? getTentativas(numeroLimpo, userId) : 0
 
   const checklistScore = Object.values(checklist).filter(Boolean).length
 
@@ -122,6 +160,8 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
       diaSemana: now.getDay() as 0|1|2|3|4|5|6,
       semanaKey: weekKey,
       mes: format(now, 'yyyy-MM'),
+      periodo,
+      tentativas: tentativasAnteriores + 1,
     }
 
     onSave(call)
@@ -147,12 +187,39 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
     setAnotacao(''); setChecklist({ apresentouProposta: false, levantouObjecao: false, agendouProximoPasso: false, demonstrouInteresse: false, solicitouRetorno: false })
     setReuniao(false); setReuniaoData(''); setReuniaoHora(''); setReuniaoLocal('meet')
     setFollowup(false); setFollowupData(''); setFollowupNota('')
-    setLeadId(null); setLeadSearch(''); setErrors({})
+    setLeadId(null); setLeadSearch(''); setErrors({}); setPeriodo('')
     onClose()
   }
 
   const toggleCheck = (key: keyof ChecklistCall) => {
     setChecklist(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  // ─── Status button renderer ──────────────────────────────────────────────────
+  function StatusBtn({
+    opt,
+    groupColor,
+  }: {
+    opt: { value: CallStatus; label: string; icon: string }
+    groupColor: string
+  }) {
+    const active = status === opt.value
+    return (
+      <button
+        key={opt.value}
+        onClick={() => setStatus(opt.value)}
+        className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-dm border transition-all"
+        style={{
+          borderColor: active ? groupColor : 'var(--border)',
+          background: active ? groupColor + '20' : 'var(--surface2)',
+          color: active ? groupColor : 'var(--muted)',
+          fontWeight: active ? 600 : 400,
+        }}
+      >
+        <span>{opt.icon}</span>
+        {opt.label}
+      </button>
+    )
   }
 
   return (
@@ -213,6 +280,12 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
                 </button>
               )}
               {errors.numero && <p className="text-xs mt-1" style={{ color: 'var(--red)' }}>{errors.numero}</p>}
+              {/* Tentativas counter */}
+              {tentativasAnteriores > 0 && (
+                <p className="text-xs mt-1 font-dm" style={{ color: '#f0c040' }}>
+                  📞 {tentativasAnteriores} tentativa(s) anterior(es) com este número
+                </p>
+              )}
             </div>
           </div>
           <input
@@ -223,20 +296,42 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
           />
         </section>
 
-        {/* === RESULTADO === */}
+        {/* === RESULTADO DA LIGAÇÃO === */}
         <section>
-          <Label>RESULTADO</Label>
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            {STATUS_OPTS.map(opt => (
+          <Label>RESULTADO DA LIGAÇÃO</Label>
+          <div className="grid grid-cols-3 gap-2 mt-2">
+            {STATUS_POSITIVO.map(opt => <StatusBtn key={opt.value} opt={opt} groupColor={GREEN} />)}
+          </div>
+
+          <p className="text-xs font-syne font-bold tracking-widest mt-4 mb-2" style={{ color: 'var(--muted)' }}>
+            SEM CONTATO
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {STATUS_SEM_CONTATO.map(opt => <StatusBtn key={opt.value} opt={opt} groupColor={YELLOW} />)}
+          </div>
+
+          <p className="text-xs font-syne font-bold tracking-widest mt-4 mb-2" style={{ color: 'var(--muted)' }}>
+            PERDIDO
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {STATUS_PERDIDO.map(opt => <StatusBtn key={opt.value} opt={opt} groupColor={RED} />)}
+          </div>
+        </section>
+
+        {/* === PERÍODO === */}
+        <section>
+          <Label>PERÍODO</Label>
+          <div className="flex gap-2 mt-2">
+            {PERIODO_OPTS.map(opt => (
               <button
                 key={opt.value}
-                onClick={() => setStatus(opt.value)}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-dm border transition-all"
+                onClick={() => setPeriodo(prev => prev === opt.value ? '' : opt.value)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-dm border flex-1 justify-center transition-all"
                 style={{
-                  borderColor: status === opt.value ? opt.color : 'var(--border)',
-                  background: status === opt.value ? opt.color + '20' : 'var(--surface2)',
-                  color: status === opt.value ? opt.color : 'var(--muted)',
-                  fontWeight: status === opt.value ? 600 : 400,
+                  borderColor: periodo === opt.value ? 'var(--accent)' : 'var(--border)',
+                  background: periodo === opt.value ? 'rgba(240,192,64,0.15)' : 'var(--surface2)',
+                  color: periodo === opt.value ? 'var(--accent)' : 'var(--muted)',
+                  fontWeight: periodo === opt.value ? 600 : 400,
                 }}
               >
                 <span>{opt.icon}</span>

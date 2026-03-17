@@ -53,17 +53,37 @@ export const TAG_COLORS: Record<string, string> = {
 }
 
 export const STATUS_LABELS: Record<string, string> = {
-  atendida:     'Atendida',
-  perdida:      'Perdida',
-  'nao-atendeu': 'Não Atendeu',
-  'caixa-postal': 'Caixa Postal',
+  'atendida':               '✅ Atendida',
+  'conversa-iniciada':      '📞 Conversa Iniciada',
+  'retornar-depois':        '⏰ Retornar Depois',
+  'reuniao-agendada':       '🤝 Reunião Agendada',
+  'follow-up':              '🔄 Follow-up',
+  'contrato-assinado':      '✍️ Contrato Assinado',
+  'nao-atendeu':            '❌ Não Atendeu',
+  'caixa-postal':           '📬 Caixa Postal',
+  'perdido-tem-empresa':    '🏳 Já Tem Empresa',
+  'perdido-desqualificado': '⛔ Desqualificado',
+  'perdida':                '❌ Perdida',
 }
 
 export const STATUS_COLORS: Record<string, string> = {
-  atendida:      '#30d090',
-  perdida:       '#e04060',
-  'nao-atendeu': '#f0c040',
-  'caixa-postal': '#7070a0',
+  'atendida':               '#30d090',
+  'conversa-iniciada':      '#4080f0',
+  'retornar-depois':        '#f0c040',
+  'reuniao-agendada':       '#8050d0',
+  'follow-up':              '#4080f0',
+  'contrato-assinado':      '#30d090',
+  'nao-atendeu':            '#f0c040',
+  'caixa-postal':           '#7070a0',
+  'perdido-tem-empresa':    '#e04060',
+  'perdido-desqualificado': '#e04060',
+  'perdida':                '#e04060',
+}
+
+export const STATUS_GRUPOS = {
+  positivo:   ['atendida', 'conversa-iniciada', 'retornar-depois', 'reuniao-agendada', 'follow-up', 'contrato-assinado'],
+  semContato: ['nao-atendeu', 'caixa-postal'],
+  perdido:    ['perdido-tem-empresa', 'perdido-desqualificado', 'perdida'],
 }
 
 export const LOCAL_LABELS: Record<string, string> = {

@@ -21,7 +21,18 @@ export interface ChecklistCall {
   solicitouRetorno: boolean
 }
 
-export type CallStatus = 'atendida' | 'perdida' | 'nao-atendeu' | 'caixa-postal'
+export type CallStatus =
+  | 'atendida'
+  | 'perdida'
+  | 'nao-atendeu'
+  | 'caixa-postal'
+  | 'retornar-depois'
+  | 'conversa-iniciada'
+  | 'reuniao-agendada'
+  | 'follow-up'
+  | 'contrato-assinado'
+  | 'perdido-tem-empresa'
+  | 'perdido-desqualificado'
 export type MeetingLocal = 'presencial' | 'zoom' | 'meet' | 'telefone' | 'whatsapp'
 
 export type DiaSemana = 'segunda' | 'terca' | 'quarta' | 'quinta' | 'sexta' | 'sabado'
@@ -49,6 +60,8 @@ export interface Call {
   diaSemana: 0 | 1 | 2 | 3 | 4 | 5 | 6
   semanaKey: string
   mes: string
+  tentativas: number
+  periodo: 'manha' | 'tarde' | 'noite' | ''
 }
 
 export type LeadTag = 'dentista' | 'otica' | 'imoveis' | 'turismo' | 'seguros' | 'saude' | 'outros'

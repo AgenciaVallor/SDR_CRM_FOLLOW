@@ -23,6 +23,7 @@ import { WeekTotalsBar } from '../components/week/WeekTotalsBar'
 import { DayCard } from '../components/week/DayCard'
 import { SabadoCard } from '../components/week/SabadoCard'
 import { DayPanel } from '../components/week/DayPanel'
+import { UploadListaModal } from '../components/shared/UploadListaModal'
 
 interface Props {
   user: User
@@ -37,6 +38,9 @@ export default function SemanaAtual({ user, isAdmin, users, onNewCall }: Props) 
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [anotacaoDia, setAnotacaoDia] = useState<Record<string, string>>({})
   const [sabadoData, setSabadoData] = useState<{ aprendizados?: string; plano?: string; finalizado?: boolean }>({})
+  const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [refreshCount, setRefreshCount] = useState(0)
+  const refresh = () => setRefreshCount(c => c + 1)
 
   const mesLabel = getMesLabel(weekKey)
   const semanaNum = getSemanaNumber(weekKey)
@@ -62,7 +66,7 @@ export default function SemanaAtual({ user, isAdmin, users, onNewCall }: Props) 
       status: getStatusDia(ligacoes, reunioes),
       calls: ds,
     }
-  }, [selectedUserId])
+  }, [selectedUserId, refreshCount])
 
   // Get annotations from storage
   const getSemanaRecord = useCallback(() => {
@@ -164,6 +168,20 @@ export default function SemanaAtual({ user, isAdmin, users, onNewCall }: Props) 
                 <ChevronRight size={16} />
               </button>
             </div>
+            <button
+              onClick={() => setUploadModalOpen(true)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                padding: '8px 18px', borderRadius: '8px',
+                background: 'var(--s2)', border: '1px solid var(--border)',
+                color: 'var(--text)', cursor: 'pointer',
+                fontSize: '13px', fontWeight: 600,
+                fontFamily: 'DM Sans, sans-serif',
+                transition: 'all 0.15s',
+              }}
+            >
+              📋 Upload Lista Semanal
+            </button>
           </div>
         </div>
 
@@ -223,6 +241,18 @@ export default function SemanaAtual({ user, isAdmin, users, onNewCall }: Props) 
           />
         )}
       </AnimatePresence>
+      <UploadListaModal
+        isOpen={uploadModalOpen}
+        currentWeekKey={weekKey}
+        currentUserId={user.id}
+        currentUserNome={user.nome}
+        currentUserRole={user.role}
+        onClose={() => setUploadModalOpen(false)}
+        onSuccess={() => {
+          setUploadModalOpen(false)
+          refresh()
+        }}
+      />
     </div>
   )
 }
