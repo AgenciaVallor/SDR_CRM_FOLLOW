@@ -382,7 +382,7 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
                 { label: 'Confirmar Senha', key: 'confirmSenha', type: 'password', placeholder: '••••••••' },
               ].map(field => (
                 <div key={field.key}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '1px', color: 'var(--muted)', marginBottom: '6px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.04em', color: 'var(--muted)', marginBottom: '6px' }}>
                     {field.label}
                   </div>
                   <input
@@ -407,7 +407,7 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 <div>
-                  <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '1px', color: 'var(--muted)', marginBottom: '6px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.04em', color: 'var(--muted)', marginBottom: '6px' }}>
                     Papel
                   </div>
                   <select
@@ -426,7 +426,7 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
                   </select>
                 </div>
                 <div>
-                  <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '1px', color: 'var(--muted)', marginBottom: '6px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.04em', color: 'var(--muted)', marginBottom: '6px' }}>
                     Meta Diária de Ligações
                   </div>
                   <input
@@ -444,7 +444,7 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
 
               {/* Avatar color picker */}
               <div>
-                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '1px', color: 'var(--muted)', marginBottom: '8px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.04em', color: 'var(--muted)', marginBottom: '8px' }}>
                   Cor do Avatar
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' as const }}>

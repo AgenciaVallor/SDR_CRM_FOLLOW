@@ -163,7 +163,7 @@ export default function MeuTime() {
                     display: 'flex', justifyContent: 'space-between',
                     fontSize: '11px', marginBottom: '5px',
                   }}>
-                    <span style={{ color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px' }}>📞 Ligações</span>
+                    <span style={{ color: 'var(--muted)', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>📞 Ligações</span>
                     <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: pLig >= 80 ? 'var(--green)' : pLig >= 50 ? 'var(--accent)' : 'var(--red)' }}>
                       {lig} / {META_LIG}
                     </span>
@@ -183,7 +183,7 @@ export default function MeuTime() {
                     display: 'flex', justifyContent: 'space-between',
                     fontSize: '11px', marginBottom: '5px',
                   }}>
-                    <span style={{ color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px' }}>🤝 Reuniões</span>
+                    <span style={{ color: 'var(--muted)', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>🤝 Reuniões</span>
                     <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: pReu >= 100 ? 'var(--green)' : pReu >= 40 ? 'var(--accent)' : 'var(--red)' }}>
                       {reu} / {META_REU}
                     </span>

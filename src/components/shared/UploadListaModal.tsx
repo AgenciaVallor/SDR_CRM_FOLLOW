@@ -219,7 +219,7 @@ export function UploadListaModal({
           {/* Preview */}
           {contacts.length > 0 && (
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', marginBottom: '8px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)', marginBottom: '8px' }}>
                 Prévia (primeiros 3 contatos)
               </div>
               <div style={{ background: 'var(--s2)', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
@@ -240,7 +240,7 @@ export function UploadListaModal({
 
           {/* Semana target */}
           <div>
-            <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', marginBottom: '6px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)', marginBottom: '6px' }}>
               Semana Alvo
             </div>
             <select
@@ -260,7 +260,7 @@ export function UploadListaModal({
           {/* Responsável (admin only) */}
           {currentUserRole === 'admin' && users.length > 0 && (
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', marginBottom: '6px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)', marginBottom: '6px' }}>
                 Responsável
               </div>
               <select
@@ -282,7 +282,7 @@ export function UploadListaModal({
           {/* Distribuição */}
           {distribuicao.length > 0 && (
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', marginBottom: '8px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)', marginBottom: '8px' }}>
                 Como será distribuído
               </div>
               <div style={{ background: 'var(--s2)', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>

@@ -255,7 +255,7 @@ export default function Dashboard({ user: currentUser, isAdmin: isInitialAdmin, 
               ].map(s => (
                 <div key={s.label}>
                   <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '28px', color: s.color, lineHeight: 1 }}>{s.val}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>{s.label}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{s.label}</div>
                   {s.meta && (
                     <div style={{ marginTop: '6px', height: '3px', background: 'var(--surface2)', borderRadius: '2px', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${Math.min(100, Math.round((Number(s.val) / s.meta) * 100))}%`, background: s.color, borderRadius: '2px' }} />
@@ -340,7 +340,7 @@ export default function Dashboard({ user: currentUser, isAdmin: isInitialAdmin, 
                 🎯 Performance por Nicho — {format(new Date(), 'MMMM yyyy', { locale: ptBR })}
               </div>
               <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 80px 80px 80px 100px', padding: '10px 16px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 80px 80px 80px 100px', padding: '10px 16px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)' }}>
                   <span>Nicho</span><span style={{ textAlign: 'center' }}>Lig</span><span style={{ textAlign: 'center' }}>Reu</span><span style={{ textAlign: 'center' }}>Contratos</span><span style={{ textAlign: 'center' }}>Taxa</span>
                 </div>
                 {nichoStats2.map((n, i) => (

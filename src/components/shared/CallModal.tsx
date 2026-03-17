@@ -331,7 +331,7 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
             className="w-full text-sm mt-3"
           />
           <div style={{ marginBottom: '16px', marginTop: '12px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', marginBottom: '6px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)', marginBottom: '6px' }}>
               Nicho
             </div>
             <select
