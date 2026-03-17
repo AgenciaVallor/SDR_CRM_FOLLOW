@@ -6,8 +6,11 @@ import { ptBR } from 'date-fns/locale'
 import { X } from 'lucide-react'
 import { Call } from '../../types'
 import { DIAS_NOMES } from '../../utils/constants'
+import { User } from '@/types'
+import { getFeedbacksForCall, saveFeedback } from '@/utils/storage'
 
 interface Props {
+  user: User // Add user prop
   dateStr: string
   diaSemana: string
   stats: { ligacoes: number; reunioes: number; calls: Call[] }
@@ -20,7 +23,81 @@ interface Props {
 const statusColors: Record<string, string> = { atendida: '#30d090', perdida: '#e04060', 'nao-atendeu': '#f0c040', 'caixa-postal': '#7070a0' }
 const statusLabels: Record<string, string> = { atendida: 'Atendida', perdida: 'Perdida', 'nao-atendeu': 'Não atendeu', 'caixa-postal': 'Caixa postal' }
 
-export function DayPanel({ dateStr, diaSemana, stats, nota, onClose, onRegisterCall, onSaveNota }: Props) {
+function CallFeedbackSection({ call, currentUser }: { call: Call, currentUser: User }) {
+  const [feedbacks, setFeedbacks]   = useState<any[]>([])
+  const [newFeedback, setNewFeedback] = useState('')
+  const [saving, setSaving]         = useState(false)
+  const canFeedback = currentUser.role === 'admin' || currentUser.role === 'gerente'
+
+  useEffect(() => {
+    getFeedbacksForCall(call.id).then(setFeedbacks)
+  }, [call.id])
+
+  async function handleSave() {
+    if (!newFeedback.trim()) return
+    setSaving(true)
+    await saveFeedback(call.id, currentUser.id, currentUser.nome, newFeedback.trim())
+    setFeedbacks(await getFeedbacksForCall(call.id))
+    setNewFeedback('')
+    setSaving(false)
+  }
+
+  if (feedbacks.length === 0 && !canFeedback) return null
+
+  return (
+    <div style={{
+      marginTop: '8px', paddingTop: '8px',
+      borderTop: '1px solid var(--border)',
+    }}>
+      {feedbacks.length > 0 && (
+        <div style={{ marginBottom: '8px' }}>
+          {feedbacks.map(fb => (
+            <div key={fb.id} style={{
+              background: 'rgba(240,192,64,0.06)',
+              border: '1px solid rgba(240,192,64,0.15)',
+              borderRadius: '6px', padding: '8px 10px',
+              marginBottom: '4px',
+            }}>
+              <div style={{ fontSize: '10px', color: 'var(--accent)', fontWeight: 700, marginBottom: '3px' }}>
+                💬 {fb.autorNome} · {new Date(fb.criadoEm).toLocaleDateString('pt-BR')}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text)', lineHeight: 1.5 }}>
+                {fb.texto}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {canFeedback && (
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <input
+            value={newFeedback}
+            onChange={e => setNewFeedback(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
+            placeholder="Deixar feedback..."
+            style={{
+              flex: 1, background: 'var(--surface2)', border: '1px solid var(--border)',
+              borderRadius: '6px', padding: '6px 10px', color: 'var(--text)',
+              fontSize: '11px', outline: 'none', fontFamily: 'DM Sans, sans-serif',
+            }}
+          />
+          <button onClick={handleSave} disabled={saving || !newFeedback.trim()} style={{
+            padding: '6px 12px', borderRadius: '6px', border: 'none',
+            background: newFeedback.trim() ? 'var(--accent)' : 'var(--surface3)',
+            color: newFeedback.trim() ? '#0a0a0f' : 'var(--muted)',
+            fontSize: '11px', fontWeight: 700, cursor: newFeedback.trim() ? 'pointer' : 'not-allowed',
+            fontFamily: 'DM Sans, sans-serif',
+          }}>
+            {saving ? '...' : 'Enviar'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function DayPanel({ user: currentUser, dateStr, diaSemana, stats, nota, onClose, onRegisterCall, onSaveNota }: Props) {
   const [localNota, setLocalNota] = useState(nota)
   const [saving, setSaving] = useState(false)
 
@@ -179,6 +256,8 @@ export function DayPanel({ dateStr, diaSemana, stats, nota, onClose, onRegisterC
                         📅 Reunião: {c.reuniaoData} às {c.reuniaoHora} ({c.reuniaoLocal})
                       </div>
                     )}
+                    
+                    <CallFeedbackSection call={c} currentUser={currentUser} />
                   </div>
                 )
               })}

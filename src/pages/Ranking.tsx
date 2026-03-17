@@ -1,10 +1,9 @@
-// src/pages/Ranking.tsx
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { User } from '../types'
+import { User, Call } from '../types'
 import { getCalls, getUsers, getVisibleUsers } from '../utils/storage'
-import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns'
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns'
 import { Avatar } from '../components/ui/Avatar'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { formatRelativeTime } from '../utils/formatters'
@@ -28,7 +27,17 @@ type Period = 'hoje' | 'semana' | 'mes' | 'total'
 
 export default function Ranking({ user }: Props) {
   const [period, setPeriod] = useState<Period>('semana')
-  const users = getVisibleUsers(user, getUsers()).filter(u => u.role === 'vendedor' && u.ativo)
+  const [calls, setCalls] = useState<Call[]>([])
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([getCalls(), getUsers()]).then(([c, u]) => {
+      setCalls(c)
+      setUsers(u)
+      setLoading(false)
+    })
+  }, [])
 
   const today = format(new Date(), 'yyyy-MM-dd')
 
@@ -47,24 +56,25 @@ export default function Ranking({ user }: Props) {
 
   const ranking = useMemo(() => {
     const { from, to } = getRange()
-    const allCalls = getCalls()
 
     return users.map(u => {
-      const userCalls = allCalls.filter(c => {
+      const userCalls = calls.filter((c: Call) => {
         const d = format(new Date(c.timestamp), 'yyyy-MM-dd')
         return c.operadorId === u.id && d >= from && d <= to
       })
-      const todayCalls = allCalls.filter(c => c.operadorId === u.id && format(new Date(c.timestamp), 'yyyy-MM-dd') === today)
-      const lastTs = todayCalls.length > 0 ? Math.max(...todayCalls.map(c => c.timestamp)) : null
+      const todayCalls = calls.filter((c: Call) => c.operadorId === u.id && format(new Date(c.timestamp), 'yyyy-MM-dd') === today)
+      const lastTs = todayCalls.length > 0 ? Math.max(...todayCalls.map((c: Call) => c.timestamp)) : null
       const lig = userCalls.length
-      const reu = userCalls.filter(c => c.reuniaoAgendada).length
+      const reu = userCalls.filter((c: Call) => c.reuniaoAgendada).length
       const taxa = lig > 0 ? Math.round((reu / lig) * 100) : 0
       const metaDias = period === 'hoje' ? 1 : period === 'semana' ? 5 : period === 'mes' ? 22 : 1
       const metaLig = 50 * metaDias
       const pct = metaLig > 0 ? Math.round((lig / metaLig) * 100) : 0
       return { user: u, lig, reu, taxa, pct, lastTs, semAtividade: todayCalls.length === 0 }
     }).sort((a, b) => b.lig - a.lig)
-  }, [users, period, today])
+  }, [users, period, today, calls])
+
+  if (loading) return <div className="p-8 text-center text-muted">Carregando ranking...</div>
 
   const medalhas = ['🥇', '🥈', '🥉']
 

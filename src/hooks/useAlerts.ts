@@ -8,16 +8,18 @@ import { isBusinessHours } from '../utils/weekUtils'
 export function useAlerts() {
   const [alerts, setAlerts] = useState<Alert[]>([])
 
-  const checkInactivity = useCallback(() => {
+  const checkInactivity = useCallback(async () => {
     if (!isBusinessHours()) return
 
     const today = format(new Date(), 'yyyy-MM-dd')
     const newAlerts: Alert[] = []
 
-    getUsers()
+    const [users, calls] = await Promise.all([getUsers(), getCalls()])
+
+    users
       .filter(u => u.role === 'vendedor' && u.ativo)
       .forEach(user => {
-        const callsToday = getCalls().filter(c => {
+        const callsToday = calls.filter(c => {
           const d = format(new Date(c.timestamp), 'yyyy-MM-dd')
           return c.operadorId === user.id && d === today
         })

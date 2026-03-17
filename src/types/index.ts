@@ -37,6 +37,15 @@ export type MeetingLocal = 'presencial' | 'zoom' | 'meet' | 'telefone' | 'whatsa
 
 export type DiaSemana = 'segunda' | 'terca' | 'quarta' | 'quinta' | 'sexta' | 'sabado'
 
+export interface CallFeedback {
+  id: string
+  callId: string
+  autorId: string
+  autorNome: string
+  texto: string
+  criadoEm: number
+}
+
 export interface Script {
   id: string
   titulo: string
@@ -81,6 +90,7 @@ export interface Call {
   mes: string
   tentativas: number
   periodo: 'manha' | 'tarde' | 'noite' | ''
+  reuniaoObs: string
 }
 
 export type LeadTag = 'dentista' | 'otica' | 'imoveis' | 'turismo' | 'seguros' | 'saude' | 'outros'
@@ -105,6 +115,9 @@ export interface Meeting {
   local: MeetingLocal
   status: MeetingStatus
   obs: string
+  leadNome: string
+  leadEmpresa: string
+  responsavelId: string
   criadoEm: number
 }
 

@@ -1,29 +1,34 @@
 // src/hooks/useMeetings.ts
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Lead, Meeting, Activity } from '../types'
-import { getLeads, updateLead } from '../utils/storage'
-import { genId } from '../utils/storage'
+import { getLeads, updateLead, genId } from '../utils/storage'
 
 export function useMeetings(userId?: string, isAdmin?: boolean) {
-  const [leads, setLeads] = useState<Lead[]>(() => getLeads())
+  const [leads, setLeads] = useState<Lead[]>([])
 
-  const reload = useCallback(() => setLeads(getLeads()), [])
+  const reload = useCallback(() => {
+    getLeads().then(setLeads)
+  }, [])
 
-  // Get all meetings across all leads
+  useEffect(() => {
+    reload()
+  }, [reload])
+
+  // Get all meetings across all leads (sync from local state)
   const getAllMeetings = useCallback((): Array<Meeting & { lead: Lead }> => {
-    const all = getLeads()
     const result: Array<Meeting & { lead: Lead }> = []
-    for (const lead of all) {
+    for (const lead of leads) {
       if (!isAdmin && userId && lead.responsavelId !== userId) continue
       for (const m of lead.reunioes) {
         result.push({ ...m, lead })
       }
     }
     return result.sort((a, b) => a.data.localeCompare(b.data) || a.hora.localeCompare(b.hora))
-  }, [userId, isAdmin])
+  }, [leads, userId, isAdmin])
 
-  const addMeeting = useCallback((leadId: string, meeting: Omit<Meeting, 'id' | 'criadoEm'>, userId: string, userName: string) => {
-    const lead = getLeads().find(l => l.id === leadId)
+  const addMeeting = useCallback(async (leadId: string, meeting: Omit<Meeting, 'id' | 'criadoEm'>, userId: string, userName: string) => {
+    const allLeads = await getLeads()
+    const lead = allLeads.find(l => l.id === leadId)
     if (!lead) return
     const newMeeting: Meeting = { ...meeting, id: genId(), criadoEm: Date.now() }
     const act: Activity = {
@@ -34,7 +39,7 @@ export function useMeetings(userId?: string, isAdmin?: boolean) {
       autorNome: userName,
       ts: Date.now(),
     }
-    updateLead(leadId, {
+    await updateLead(leadId, {
       reunioes: [...lead.reunioes, newMeeting],
       atividades: [...lead.atividades, act],
       atualizadoEm: Date.now(),
@@ -42,10 +47,11 @@ export function useMeetings(userId?: string, isAdmin?: boolean) {
     reload()
   }, [reload])
 
-  const updateMeeting = useCallback((leadId: string, meetingId: string, patch: Partial<Meeting>) => {
-    const lead = getLeads().find(l => l.id === leadId)
+  const updateMeeting = useCallback(async (leadId: string, meetingId: string, patch: Partial<Meeting>) => {
+    const allLeads = await getLeads()
+    const lead = allLeads.find(l => l.id === leadId)
     if (!lead) return
-    updateLead(leadId, {
+    await updateLead(leadId, {
       reunioes: lead.reunioes.map(m => m.id === meetingId ? { ...m, ...patch } : m),
       atualizadoEm: Date.now(),
     })

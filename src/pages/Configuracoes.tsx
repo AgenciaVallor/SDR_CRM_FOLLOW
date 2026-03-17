@@ -1,17 +1,25 @@
 // src/pages/Configuracoes.tsx
-import React, { useState } from 'react'
-import { getCols, updateCol, getTemplates, setTemplates, genId } from '../utils/storage'
+import React, { useState, useEffect } from 'react'
+import { getCols, updateCol, getTemplates, setTemplates } from '../utils/storage'
 import { KanbanCol, CadenciaTemplate } from '../types'
 import { useToast } from '../context/ToastContext'
 
 export default function Configuracoes() {
-  const [cols, setCols] = useState(() => getCols().sort((a,b)=>a.ordem-b.ordem))
-  const [templates, setTemplatesState] = useState(() => getTemplates())
+  const [cols, setCols] = useState<KanbanCol[]>([])
+  const [templates, setTemplatesState] = useState<CadenciaTemplate[]>([])
   const { success } = useToast()
 
-  const saveScript = (colId: string, script: string) => {
-    updateCol(colId, { script })
-    setCols(getCols().sort((a,b)=>a.ordem-b.ordem))
+  useEffect(() => {
+    Promise.all([getCols(), getTemplates()]).then(([c, t]) => {
+      setCols(c.sort((a, b) => a.ordem - b.ordem))
+      setTemplatesState(t)
+    })
+  }, [])
+
+  const saveScript = async (colId: string, script: string) => {
+    await updateCol(colId, { script })
+    const updated = await getCols()
+    setCols(updated.sort((a, b) => a.ordem - b.ordem))
     success('Script salvo!')
   }
 

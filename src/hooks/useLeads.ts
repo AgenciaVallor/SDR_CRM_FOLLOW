@@ -1,41 +1,49 @@
-// src/hooks/useLeads.ts
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Lead, Activity } from '../types'
-import { getLeads, setLeads, addLead, updateLead, deleteLead, getCols, getUserById } from '../utils/storage'
-import { genId } from '../utils/storage'
+import { getLeads, getLeadsByOperador, saveLead, updateLead as dbUpdateLead, deleteLead, getCols, genId } from '../utils/storage'
 
 export function useLeads(userId?: string, isAdmin?: boolean) {
-  const _isAdmin = isAdmin || (userId ? getUserById(userId)?.role === 'gerente' : false)
+  const [leads, setLeads] = useState<Lead[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const [leads, setLeadsState] = useState<Lead[]>(() => {
-    const all = getLeads()
-    return _isAdmin || !userId ? all : all.filter(l => l.responsavelId === userId)
-  })
+  const reload = useCallback(async () => {
+    if (!userId) {
+      setLeads([])
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    try {
+      const all = isAdmin ? await getLeads() : await getLeadsByOperador(userId)
+      setLeads(all)
+    } finally {
+      setLoading(false)
+    }
+  }, [userId, isAdmin])
 
-  const reload = useCallback(() => {
-    const all = getLeads()
-    setLeadsState(_isAdmin || !userId ? all : all.filter(l => l.responsavelId === userId))
-  }, [userId, _isAdmin])
-
-  const add = useCallback((l: Lead) => {
-    addLead(l)
+  useEffect(() => {
     reload()
   }, [reload])
 
-  const update = useCallback((id: string, patch: Partial<Lead>) => {
-    updateLead(id, { ...patch, atualizadoEm: Date.now() })
-    reload()
+  const add = useCallback(async (l: Lead) => {
+    await saveLead(l)
+    await reload()
   }, [reload])
 
-  const remove = useCallback((id: string) => {
-    deleteLead(id)
-    reload()
+  const update = useCallback(async (id: string, patch: Partial<Lead>) => {
+    await dbUpdateLead(id, { ...patch, atualizadoEm: Date.now() })
+    await reload()
   }, [reload])
 
-  const moveColumn = useCallback((leadId: string, colId: string, userId: string, userName: string) => {
-    const lead = getLeads().find(l => l.id === leadId)
+  const remove = useCallback(async (id: string) => {
+    await deleteLead(id)
+    await reload()
+  }, [reload])
+
+  const moveColumn = useCallback(async (leadId: string, colId: string, userId: string, userName: string) => {
+    const lead = leads.find(l => l.id === leadId)
     if (!lead) return
-    const cols = getCols()
+    const cols = await getCols()
     const col = cols.find(c => c.id === colId)
     const act: Activity = {
       id: genId(),
@@ -45,40 +53,36 @@ export function useLeads(userId?: string, isAdmin?: boolean) {
       autorNome: userName,
       ts: Date.now(),
     }
-    updateLead(leadId, {
+    await dbUpdateLead(leadId, {
       colId,
       atividades: [...lead.atividades, act],
       atualizadoEm: Date.now(),
       script: col?.script ?? lead.script,
     })
-    reload()
-  }, [reload])
+    await reload()
+  }, [leads, reload])
 
-  const addNote = useCallback((leadId: string, txt: string, userId: string, userName: string) => {
-    const lead = getLeads().find(l => l.id === leadId)
+  const addNote = useCallback(async (leadId: string, txt: string, userId: string, userName: string) => {
+    const lead = leads.find(l => l.id === leadId)
     if (!lead) return
     const act: Activity = {
       id: genId(),
       txt,
-      tipo: 'anotacao',
+      tipo: 'nota',
       autorId: userId,
       autorNome: userName,
       ts: Date.now(),
     }
-    updateLead(leadId, {
+    await dbUpdateLead(leadId, {
       atividades: [...lead.atividades, act],
       atualizadoEm: Date.now(),
     })
-    reload()
-  }, [reload])
+    await reload()
+  }, [leads, reload])
 
   const getPipelineValue = useCallback(() => {
-    const cols = getCols()
-    return leads.reduce((sum, l) => {
-      const col = cols.find(c => c.id === l.colId)
-      return col && !col.isLost ? sum + l.valor : sum
-    }, 0)
+    return leads.reduce((acc, curr) => acc + (curr.valor || 0), 0)
   }, [leads])
 
-  return { leads, add, update, remove, reload, moveColumn, addNote, getPipelineValue }
+  return { leads, loading, add, update, remove, reload, moveColumn, addNote, getPipelineValue }
 }

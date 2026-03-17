@@ -1,5 +1,5 @@
 // src/pages/Cadencia.tsx
-import React, { useState, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Phone, MessageCircle, Mail, Check } from 'lucide-react'
 import { User } from '../types'
@@ -25,24 +25,32 @@ const TIPO_COLORS: Record<string, string> = {
 }
 
 export default function Cadencia({ user, isAdmin }: Props) {
-  const cadencias = getCadencias()
-  const leads = getLeads()
-  const templates = getTemplates()
+  const [cadencias, setCadencias] = useState<any[]>([])
+  const [leads, setLeads] = useState<any[]>([])
+  const [templates, setTemplates] = useState<any[]>([])
   const today = format(new Date(), 'yyyy-MM-dd')
+
+  useEffect(() => {
+    Promise.all([getCadencias(), getLeads(), getTemplates()]).then(([c, l, t]) => {
+      setCadencias(c)
+      setLeads(l)
+      setTemplates(t)
+    })
+  }, [])
 
   const todayTasks = useMemo(() => {
     return cadencias
-      .filter(c => c.ativa && (isAdmin || leads.find(l => l.id === c.leadId)?.responsavelId === user.id))
-      .flatMap(c => {
-        const lead = leads.find(l => l.id === c.leadId)
+      .filter((c: any) => c.ativa && (isAdmin || leads.find((l: any) => l.id === c.leadId)?.responsavelId === user.id))
+      .flatMap((c: any) => {
+        const lead = leads.find((l: any) => l.id === c.leadId)
         const startDate = new Date(c.inicioEm)
         return c.etapas
-          .filter(e => !e.feita)
-          .map(e => {
+          .filter((e: any) => !e.feita)
+          .map((e: any) => {
             const dueDate = format(addDays(startDate, e.dia - 1), 'yyyy-MM-dd')
             return { ...e, dueDate, lead, cadenciaId: c.id }
           })
-          .filter(e => e.dueDate <= today)
+          .filter((e: any) => e.dueDate <= today)
       })
   }, [cadencias, leads, user.id, isAdmin, today])
 
@@ -64,7 +72,7 @@ export default function Cadencia({ user, isAdmin }: Props) {
             </div>
           ) : (
             <div className="space-y-3">
-              {todayTasks.map((t, i) => (
+              {todayTasks.map((t: any, i: any) => (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, x: -10 }}
@@ -113,11 +121,11 @@ export default function Cadencia({ user, isAdmin }: Props) {
         <div>
           <h2 className="font-syne font-bold text-sm mb-3" style={{ color: 'var(--text)' }}>📋 Templates</h2>
           <div className="space-y-3">
-            {templates.map(t => (
+            {templates.map((t: any) => (
               <div key={t.id} className="rounded-xl border p-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
                 <p className="font-semibold text-sm mb-3" style={{ color: 'var(--text)' }}>{t.nome}</p>
                 <div className="space-y-1.5">
-                  {t.etapas.map((e, i) => (
+                  {t.etapas.map((e: any, i: any) => (
                     <div key={i} className="flex items-center gap-2 text-xs">
                       <span style={{ color: TIPO_COLORS[e.tipo] }}>{TIPO_ICONS[e.tipo]}</span>
                       <span style={{ color: 'var(--muted)' }}>Dia {e.dia}:</span>

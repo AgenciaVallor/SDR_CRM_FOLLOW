@@ -1,18 +1,27 @@
-import { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { getCalls, getUsers } from '@/utils/storage'
-import { getWeekKey, getWeekDates, isToday, fmtBR } from '@/utils/weekUtils'
-import { DIAS_UTEIS } from '@/utils/constants'
+import { getWeekKey, getWeekDates } from '@/utils/weekUtils'
+import { Call, User } from '@/types'
 
 const META_LIG = 50
 const META_REU = 5
 
 export default function MeuTime() {
   const [period, setPeriod] = useState<'hoje' | 'semana' | 'mes'>('hoje')
-  const allCalls = getCalls()
-  const vendedores = getUsers().filter(u => u.role === 'vendedor' && u.ativo)
+  const [allCalls, setAllCalls] = useState<Call[]>([])
+  const [vendedores, setVendedores] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([getCalls(), getUsers()]).then(([calls, users]) => {
+      setAllCalls(calls)
+      setVendedores(users.filter(u => u.role === 'vendedor' && u.ativo))
+      setLoading(false)
+    })
+  }, [])
+
   const today = new Date().toISOString().split('T')[0]
   const weekKey = getWeekKey(new Date())
-  const weekDates = getWeekDates(weekKey)
 
   function getCallsForPeriod(userId: string) {
     return allCalls.filter(c => {
@@ -54,7 +63,9 @@ export default function MeuTime() {
   }
 
   const alertColors = { ok: 'var(--green)', warning: 'var(--accent)', danger: 'var(--red)' }
-  const alertLabels = { ok: '🟢 Ativo', warning: '🟡 Parado', danger: '🔴 Sem atividade' }
+  const alertLabels = { ok: 'Ativo', warning: 'Parado', danger: 'Sem atividade' }
+
+  if (loading) return <div className="p-8 text-center text-muted">Carregando meu time...</div>
 
   return (
     <div style={{ padding: '32px' }}>

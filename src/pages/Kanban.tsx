@@ -1,5 +1,4 @@
-// src/pages/Kanban.tsx
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
@@ -27,14 +26,23 @@ interface Props {
 }
 
 export default function Kanban({ leads, user, isAdmin, onReload }: Props) {
-  const [cols] = useState(() => getCols().sort((a, b) => a.ordem - b.ordem))
-  const users = getUsers()
+  const [cols, setCols] = useState<KanbanCol[]>([])
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [newLeadCol, setNewLeadCol] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filterTag, setFilterTag] = useState('')
   const [filterResp, setFilterResp] = useState('')
+
+  useEffect(() => {
+    Promise.all([getCols(), getUsers()]).then(([c, u]) => {
+      setCols(c.sort((a, b) => a.ordem - b.ordem))
+      setUsers(u)
+      setLoading(false)
+    })
+  }, [])
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -97,8 +105,10 @@ export default function Kanban({ leads, user, isAdmin, onReload }: Props) {
         )}
       </div>
 
-      {/* Board */}
-      <div className="flex-1 overflow-x-auto overflow-y-auto p-4">
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center text-muted">Carregando kanban...</div>
+      ) : (
+        <div className="flex-1 overflow-x-auto overflow-y-auto p-4">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={e => setActiveId(String(e.active.id))} onDragEnd={handleDragEnd}>
           <div className="flex gap-4 min-w-max h-full">
             {cols.map(col => {
@@ -161,7 +171,8 @@ export default function Kanban({ leads, user, isAdmin, onReload }: Props) {
             )}
           </DragOverlay>
         </DndContext>
-      </div>
+        </div>
+      )}
 
       {/* Lead Modal */}
       {selectedLead && (

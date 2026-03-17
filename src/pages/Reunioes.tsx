@@ -3,8 +3,9 @@ import React, { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { format, addDays, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { User } from '../types'
-import { getLeads, getUsers, updateLead, getVisibleUsers } from '../utils/storage'
+import { User, Meeting } from '../types'
+import { getLeads, getUsers, updateLead, getVisibleUsers, getReunioes } from '../utils/storage'
+import { supabase } from '../lib/supabase'
 import { Avatar } from '../components/ui/Avatar'
 import { Badge } from '../components/ui/Badge'
 import { LOCAL_LABELS } from '../utils/formatters'
@@ -17,37 +18,101 @@ interface Props {
 export default function Reunioes({ user, isAdmin }: Props) {
   const [tab, setTab] = useState<'lista' | 'calendario'>('lista')
   const [filterStatus, setFilterStatus] = useState('')
-  const users = getVisibleUsers(user, getUsers())
+  const [meetings, setMeetings] = useState<Meeting[]>([])
+  const [loading, setLoading] = useState(true)
+  const [visibleUsers, setVisibleUsers] = useState<User[]>([])
+  
   const today = format(new Date(), 'yyyy-MM-dd')
+  const currentMonth = format(new Date(), 'yyyy-MM')
 
-  const allMeetings = useMemo(() => {
-    const leads = getLeads()
-    const result: Array<{ id: string; data: string; hora: string; local: string; status: string; obs: string; leadNome: string; leadEmpresa: string; leadId: string; responsavelId: string }> = []
-    for (const lead of leads) {
-      // Visibility is already handled by useLeads inside App.tsx which passes leads into Reunioes
-      for (const m of lead.reunioes) {
-        result.push({
-          id: m.id, data: m.data, hora: m.hora, local: m.local, status: m.status, obs: m.obs,
-          leadNome: lead.nome, leadEmpresa: lead.empresa, leadId: lead.id, responsavelId: lead.responsavelId,
-        })
-      }
+  async function loadMeetings() {
+    setLoading(true)
+    const [mdata, udata] = await Promise.all([getReunioes(), getUsers()])
+    setMeetings(mdata)
+    setVisibleUsers(getVisibleUsers(user, udata))
+    setLoading(false)
+  }
+
+  React.useEffect(() => {
+    loadMeetings()
+  }, [])
+
+  async function updateMeetingStatus(id: string, status: string) {
+    await supabase.from('reunioes').update({ status }).eq('id', id)
+    loadMeetings()
+  }
+
+  const filtered = useMemo(() => {
+    let list = filterStatus ? meetings.filter(m => m.status === filterStatus) : meetings
+    if (user.role === 'vendedor') {
+      list = list.filter(m => m.responsavelId === user.id)
     }
-    return result.sort((a, b) => a.data.localeCompare(b.data) || a.hora.localeCompare(b.hora))
-  }, [isAdmin, user.id])
+    return list
+  }, [meetings, filterStatus, user])
 
-  const filtered = filterStatus ? allMeetings.filter(m => m.status === filterStatus) : allMeetings
+  const monthMeetings = useMemo(() => {
+    return meetings.filter(m => format(parseISO(m.data), 'yyyy-MM') === currentMonth)
+  }, [meetings, currentMonth])
 
-  const todayMeetings  = allMeetings.filter(m => m.data === today)
-  const weekMeetings   = allMeetings.filter(m => m.data >= today && m.data <= format(addDays(new Date(), 7), 'yyyy-MM-dd'))
-  const totalAgendadas = allMeetings.filter(m => m.status === 'agendada').length
-  const totalRealizadas = allMeetings.filter(m => m.status === 'realizada').length
-  const showRate = totalAgendadas + totalRealizadas > 0 ? Math.round((totalRealizadas / (totalAgendadas + totalRealizadas)) * 100) : 0
+  const stats = [
+    { label: 'Agendadas no Mês',  value: monthMeetings.length,                                              color: 'var(--blue)'   },
+    { label: 'Realizadas',        value: monthMeetings.filter(m => m.status === 'realizada').length,        color: 'var(--green)'  },
+    { label: 'Canceladas',        value: monthMeetings.filter(m => m.status === 'cancelada').length,        color: 'var(--red)'    },
+    { label: 'Taxa de Show',      value: monthMeetings.length > 0
+        ? `${Math.round((monthMeetings.filter(m => m.status === 'realizada').length / monthMeetings.filter(m => m.status !== 'agendada').length) * 100) || 0}%`
+        : '—',                                                                                               color: 'var(--accent)' },
+  ]
 
-  const STATUS_COLORS: Record<string, string> = {
-    agendada:   '#4080f0',
-    realizada:  '#30d090',
-    cancelada:  '#e04060',
-    remarcada:  '#f0c040',
+  const todayMeetings = meetings.filter(m => m.data === today)
+  const weekMeetings  = meetings.filter(m => m.data >= today && m.data <= format(addDays(new Date(), 7), 'yyyy-MM-dd'))
+
+  function MeetingStatusBadge({ meeting, onUpdate }: {
+    meeting: any
+    onUpdate: (id: string, status: string) => void
+  }) {
+    const isPast = meeting.data < today
+    const isToday = meeting.data === today
+
+    const statusConfig: any = {
+      agendada:   { label: '📅 Agendada',   color: 'var(--blue)',   bg: 'rgba(64,128,240,0.15)' },
+      realizada:  { label: '✅ Realizada',   color: 'var(--green)',  bg: 'rgba(48,208,144,0.15)' },
+      cancelada:  { label: '❌ Cancelada',   color: 'var(--red)',    bg: 'rgba(224,64,96,0.15)'  },
+      remarcada:  { label: '🔄 Remarcada',   color: 'var(--accent)', bg: 'rgba(240,192,64,0.15)' },
+    }
+
+    const config = statusConfig[meeting.status] || statusConfig.agendada
+
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span style={{
+          padding: '3px 10px', borderRadius: '20px',
+          fontSize: '11px', fontWeight: 700,
+          background: config.bg, color: config.color,
+        }}>
+          {config.label}
+        </span>
+
+        {meeting.status === 'agendada' && (isPast || isToday) && (
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button onClick={() => onUpdate(meeting.id, 'realizada')} style={{
+              padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+              background: 'rgba(48,208,144,0.1)', border: '1px solid rgba(48,208,144,0.3)',
+              color: 'var(--green)', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+            }}>✅ Realizada</button>
+            <button onClick={() => onUpdate(meeting.id, 'cancelada')} style={{
+              padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+              background: 'rgba(224,64,96,0.1)', border: '1px solid rgba(224,64,96,0.3)',
+              color: 'var(--red)', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+            }}>❌ Cancelou</button>
+            <button onClick={() => onUpdate(meeting.id, 'remarcada')} style={{
+              padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+              background: 'rgba(240,192,64,0.1)', border: '1px solid rgba(240,192,64,0.3)',
+              color: 'var(--accent)', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+            }}>🔄 Remarcou</button>
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -60,12 +125,7 @@ export default function Reunioes({ user, isAdmin }: Props) {
           </p>
         </div>
         <div className="flex gap-3">
-          {/* KPIs */}
-          {[
-            { label: 'Agendadas', value: totalAgendadas, color: 'var(--blue)' },
-            { label: 'Realizadas', value: totalRealizadas, color: 'var(--green)' },
-            { label: 'Show Rate', value: `${showRate}%`, color: 'var(--accent)' },
-          ].map(k => (
+          {stats.map(k => (
             <div key={k.label} className="rounded-xl px-4 py-2 border text-center" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
               <p className="text-lg font-syne font-black" style={{ color: k.color }}>{k.value}</p>
               <p className="text-xs" style={{ color: 'var(--muted)' }}>{k.label}</p>
@@ -95,21 +155,23 @@ export default function Reunioes({ user, isAdmin }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['Lead', 'Empresa', 'Data', 'Hora', 'Local', 'Responsável', 'Status'].map(h => (
+                  {['Lead', 'Data', 'Hora', 'Local', 'Responsável', 'Status'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-syne font-bold" style={{ color: 'var(--muted)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((m, i) => {
-                  const resp = users.find(u => u.id === m.responsavelId)
+                  const resp = visibleUsers.find(u => u.id === m.responsavelId)
                   return (
                     <tr key={m.id} className="border-b" style={{ borderColor: 'var(--border)', background: i%2===0 ? 'var(--surface)' : 'var(--surface2)' }}>
-                      <td className="px-4 py-3 font-semibold text-sm" style={{ color: 'var(--text)' }}>{m.leadNome}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--muted)' }}>{m.leadEmpresa}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-sm" style={{ color: 'var(--text)' }}>{m.leadNome}</div>
+                        <div className="text-xs" style={{ color: 'var(--muted)' }}>{m.leadEmpresa}</div>
+                      </td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text)' }}>
                         {format(parseISO(m.data), "dd/MM/yyyy", { locale: ptBR })}
-                        {m.data === today && <span className="ml-1 text-accent" style={{ color: 'var(--accent)' }}>HOJE</span>}
+                        {m.data === today && <span className="ml-1 text-accent" style={{ color: 'var(--accent)', fontWeight: 700 }}>HOJE</span>}
                       </td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text)' }}>{m.hora}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--muted)' }}>{LOCAL_LABELS[m.local] ?? m.local}</td>
@@ -117,13 +179,16 @@ export default function Reunioes({ user, isAdmin }: Props) {
                         {resp && <div className="flex items-center gap-1.5"><Avatar nome={resp.nome} color={resp.avatar} size={20} /><span className="text-xs" style={{ color: 'var(--muted)' }}>{resp.nome}</span></div>}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge color={STATUS_COLORS[m.status] ?? 'var(--muted)'}>{m.status}</Badge>
+                        <MeetingStatusBadge meeting={m} onUpdate={updateMeetingStatus} />
                       </td>
                     </tr>
                   )
                 })}
-                {filtered.length === 0 && (
+                {filtered.length === 0 && !loading && (
                   <tr><td colSpan={7} className="text-center py-12 text-sm" style={{ color: 'var(--muted)' }}>Nenhuma reunião encontrada.</td></tr>
+                )}
+                {loading && (
+                  <tr><td colSpan={7} className="text-center py-12 text-sm" style={{ color: 'var(--muted)' }}>Carregando...</td></tr>
                 )}
               </tbody>
             </table>
@@ -133,7 +198,7 @@ export default function Reunioes({ user, isAdmin }: Props) {
         <div className="space-y-4">
           {Array.from({ length: 7 }, (_, i) => {
             const d = format(addDays(new Date(), i), 'yyyy-MM-dd')
-            const dm = allMeetings.filter(m => m.data === d)
+            const dm = meetings.filter(m => m.data === d)
             return (
               <div key={d}>
                 <div className="flex items-center gap-3 mb-2">
@@ -148,7 +213,7 @@ export default function Reunioes({ user, isAdmin }: Props) {
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
                     {dm.map(m => {
-                      const resp = users.find(u => u.id === m.responsavelId)
+                      const resp = visibleUsers.find(u => u.id === m.responsavelId)
                       return (
                         <div key={m.id} className="rounded-xl border p-3" style={{ background: 'var(--surface)', borderColor: 'rgba(64,128,240,0.3)', borderLeft: '3px solid var(--blue)' }}>
                           <div className="flex items-center justify-between mb-1">

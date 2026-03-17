@@ -4,29 +4,28 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Phone, Lock, User, Eye, EyeOff } from 'lucide-react'
 
 interface Props {
-  onLogin: (email: string, senha: string) => boolean
+  onLogin: (email: string, senha: string) => Promise<void>
+  loading?: boolean
+  error?: string
 }
 
-export default function Login({ onLogin }: Props) {
+export default function Login({ onLogin, loading, error }: Props) {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [showPass, setShowPass] = useState(false)
-  const [error, setError] = useState('')
+  const [internalError, setInternalError] = useState('')
   const [shaking, setShaking] = useState(false)
-  const [loading, setLoading] = useState(false)
+  
+  const displayError = error || internalError
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
-    await new Promise(r => setTimeout(r, 300))
-    const ok = onLogin(email, senha)
-    if (!ok) {
-      setError('Usuário ou senha incorretos.')
+    setInternalError('')
+    await onLogin(email, senha)
+    if (error || internalError) {
       setShaking(true)
       setTimeout(() => setShaking(false), 600)
     }
-    setLoading(false)
   }
 
   return (
@@ -125,6 +124,9 @@ export default function Login({ onLogin }: Props) {
                 className="w-full pl-9 pr-10 py-3 text-sm"
                 required
                 autoComplete="current-password"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
               />
               <button
                 type="button"
@@ -136,7 +138,7 @@ export default function Login({ onLogin }: Props) {
             </div>
 
             <AnimatePresence>
-              {error && (
+              {displayError && (
                 <motion.p
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -144,7 +146,7 @@ export default function Login({ onLogin }: Props) {
                   className="text-xs rounded-lg px-3 py-2 font-dm"
                   style={{ color: 'var(--red)', background: 'rgba(224,64,96,0.1)' }}
                 >
-                  {error}
+                  {displayError}
                 </motion.p>
               )}
             </AnimatePresence>

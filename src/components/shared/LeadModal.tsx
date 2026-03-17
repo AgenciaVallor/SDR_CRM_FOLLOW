@@ -1,5 +1,5 @@
 // src/components/shared/LeadModal.tsx
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Modal } from '../ui/Modal'
 import { Lead, KanbanCol, User, Activity } from '../../types'
@@ -28,7 +28,10 @@ interface Props {
 
 export default function LeadModal({ lead, open, onClose, user, cols, isAdmin, defaultColId, onReload }: Props) {
   const { success } = useToast()
-  const users = getUsers()
+  const [users, setUsers] = useState<User[]>([])
+  useEffect(() => {
+    getUsers().then(setUsers)
+  }, [])
   const isNew = !lead
 
   const [tab, setTab] = useState<'info' | 'script' | 'reunioes' | 'historico'>('info')

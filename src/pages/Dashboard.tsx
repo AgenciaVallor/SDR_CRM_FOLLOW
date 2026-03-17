@@ -8,7 +8,7 @@ import { Avatar } from '../components/ui/Avatar'
 import { User, Call } from '../types'
 import { getUsers, getCalls, getVisibleUsers } from '../utils/storage'
 import { formatCurrency, formatRelativeTime, STATUS_GRUPOS } from '../utils/formatters'
-import { format, subDays } from 'date-fns'
+import { format, subDays, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 // Fix formatRelativeTime import
@@ -31,119 +31,166 @@ interface Props {
   setPage: (p: string) => void
 }
 
-export default function Dashboard({ user, isAdmin, calls, pipelineValue, alerts, setPage }: Props) {
+export default function Dashboard({ user: currentUser, isAdmin: isInitialAdmin, calls: allCalls, pipelineValue, alerts, setPage }: Props) {
+  const isAdmin   = currentUser?.role === 'admin'
+  const isGerente = currentUser?.role === 'gerente'
+  const isVendedor= currentUser?.role === 'vendedor'
+  const canSeeTeam = isAdmin || isGerente
+
   const today = format(new Date(), 'yyyy-MM-dd')
-  const users = getVisibleUsers(user, getUsers())
+  const currentMonth = format(new Date(), 'yyyy-MM')
+  
+  const [users, setUsers] = React.useState<User[]>([])
+  
+  const loadDashboardData = React.useCallback(async () => {
+    const u = await getUsers()
+    setUsers(u)
+  }, [])
 
-  // Today's calls for current user
-  const todayCalls = useMemo(() => calls.filter(c => {
-    const d = format(new Date(c.timestamp), 'yyyy-MM-dd')
-    return c.operadorId === user.id && d === today
-  }), [calls, user.id, today])
+  React.useEffect(() => {
+    loadDashboardData()
+    const interval = setInterval(loadDashboardData, 60000)
+    return () => clearInterval(interval)
+  }, [loadDashboardData])
 
-  const todayLigacoes = todayCalls.length
-  const todayAtendidas = todayCalls.filter(c => STATUS_GRUPOS.positivo.includes(c.status)).length
-  const todayPerdidas  = todayCalls.filter(c => STATUS_GRUPOS.perdido.includes(c.status)).length
-  const todayContratos = todayCalls.filter(c => c.status === 'contrato-assinado').length
-  const todayReunioes  = todayCalls.filter(c => c.reuniaoAgendada).length
-  const todayTaxa = todayLigacoes > 0 ? Math.round((todayReunioes / todayLigacoes) * 100) : 0
+  const activeVendedores = useMemo(() => {
+    return users.filter(u => u.role === 'vendedor' && u.ativo)
+  }, [users])
 
-  // Chart data - last 14 days
-  const chartData = useMemo(() => {
-    return Array.from({ length: 14 }, (_, i) => {
-      const d = format(subDays(new Date(), 13 - i), 'yyyy-MM-dd')
-      const dayCalls = calls.filter(c => {
-        const cd = format(new Date(c.timestamp), 'yyyy-MM-dd')
-        return cd === d
-      })
-      return {
-        date: format(subDays(new Date(), 13 - i), 'dd/MM', { locale: ptBR }),
-        atendidas:   dayCalls.filter(c => STATUS_GRUPOS.positivo.includes(c.status)).length,
-        perdidas:    dayCalls.filter(c => STATUS_GRUPOS.perdido.includes(c.status)).length,
-        naoAtendeu:  dayCalls.filter(c => STATUS_GRUPOS.semContato.includes(c.status)).length,
-        reunioes:    dayCalls.filter(c => c.reuniaoAgendada).length,
-        total:       dayCalls.length,
-      }
-    })
-  }, [calls, isAdmin, user.id])
+  // Stats Logic
+  const visibleCalls = canSeeTeam ? allCalls : allCalls.filter(c => c.operadorId === currentUser.id)
+  const todayCalls   = visibleCalls.filter(c => format(new Date(c.timestamp), 'yyyy-MM-dd') === today)
 
-  // Weekly grid
-  const weekDays = useMemo(() => {
-    return [0,1,2,3,4].map(i => {
-      const d = format(subDays(new Date(), 4 - i - (new Date().getDay() - 1 < 0 ? 0 : new Date().getDay() - 1)), 'yyyy-MM-dd')
-      const dc = calls.filter(c => c.operadorId === user.id && format(new Date(c.timestamp), 'yyyy-MM-dd') === d)
-      return {
-        label: format(new Date(d), 'EEE dd', { locale: ptBR }),
-        ligacoes: dc.length,
-        reunioes: dc.filter(c => c.reuniaoAgendada).length,
-        atingiu: dc.length >= 50 && dc.filter(c => c.reuniaoAgendada).length >= 5,
-        isToday: d === today,
-      }
-    })
-  }, [calls, user.id, today])
-
-  // Team board (admin)
-  const teamData = useMemo(() => {
-    if (!isAdmin) return []
-    return users.filter(u => u.role === 'vendedor' && u.ativo).map(u => {
-      const uc = getCalls().filter(c => c.operadorId === u.id && format(new Date(c.timestamp), 'yyyy-MM-dd') === today)
-      const lastTs = uc.length > 0 ? Math.max(...uc.map(c => c.timestamp)) : null
-      const lig = uc.length
-      const reu = uc.filter(c => c.reuniaoAgendada).length
-      const pct = (lig / 50 + reu / 5) / 2 * 100
-      const horasInativo = lastTs ? (Date.now() - lastTs) / 3600000 : null
-      return { user: u, lig, reu, pct, lastTs, horasInativo }
-    }).sort((a, b) => b.pct - a.pct)
-  }, [isAdmin, users, today])
-
-  // Recent activity (admin)
-  const recentActivity = useMemo(() => {
-    if (!isAdmin) return []
-    return getCalls()
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .slice(0, 12)
-  }, [isAdmin])
-
-  const kpiCards = [
+  const statsCards = [
     {
-      label: 'Ligações Hoje',
-      value: todayLigacoes,
-      max: 50,
+      label: canSeeTeam ? 'Ligações da Equipe Hoje' : 'Minhas Ligações Hoje',
+      value: `${todayCalls.length}`,
+      meta: canSeeTeam
+        ? `meta: ${activeVendedores.length * 50} lig total`
+        : `meta: 50 lig`,
       icon: Phone,
-      color: todayLigacoes >= 50 ? '#30d090' : todayLigacoes >= 25 ? '#f0c040' : '#e04060',
-      suffix: '/ 50'
+      color: todayCalls.length >= (canSeeTeam ? activeVendedores.length * 50 : 50) ? 'var(--green)' : todayCalls.length >= (canSeeTeam ? activeVendedores.length * 25 : 25) ? 'var(--accent)' : 'var(--red)',
     },
     {
-      label: 'Reuniões Hoje',
-      value: todayReunioes,
-      max: 5,
+      label: canSeeTeam ? 'Reuniões Agendadas Hoje' : 'Minhas Reuniões Hoje',
+      value: `${todayCalls.filter(c => c.reuniaoAgendada).length}`,
+      meta: canSeeTeam
+        ? `meta: ${activeVendedores.length * 5} reuniões`
+        : `meta: 5 reuniões`,
       icon: Handshake,
-      color: todayReunioes >= 5 ? '#30d090' : '#f0c040',
-      suffix: '/ 5'
+      color: 'var(--green)',
     },
     {
-      label: 'Positivos Hoje',
-      value: todayAtendidas,
-      max: todayLigacoes || 1,
-      icon: CheckCircle2,
-      color: '#30d090',
-      suffix: ` / ${todayLigacoes}`,
-    },
-    {
-      label: 'Contratos',
-      value: todayContratos,
-      max: 10,
+      label: 'Taxa de Conversão',
+      value: todayCalls.length > 0
+        ? `${Math.round((todayCalls.filter(c => c.reuniaoAgendada).length / todayCalls.length) * 100)}%`
+        : '0%',
+      meta: 'meta: 10%',
       icon: TrendingUp,
-      color: '#8050d0',
-      suffix: '',
+      color: 'var(--blue)',
+    },
+    {
+      label: 'Contratos Este Mês',
+      value: `${visibleCalls.filter(c => c.status === 'contrato-assinado' && c.mes === currentMonth).length}`,
+      meta: 'meta: 20/mês',
+      icon: DollarSign,
+      color: 'var(--accent)',
     },
   ]
+
+  const monthCalls = useMemo(() => {
+    return allCalls.filter(c => c.mes === currentMonth)
+  }, [allCalls, currentMonth])
+
+  const nichoStats = useMemo(() => {
+    const map: Record<string, { ligacoes: number; reunioes: number; contratos: number }> = {}
+
+    monthCalls.forEach(c => {
+      const nicho = c.nicho || 'Sem nicho'
+      if (!map[nicho]) map[nicho] = { ligacoes: 0, reunioes: 0, contratos: 0 }
+      map[nicho].ligacoes++
+      if (c.reuniaoAgendada) map[nicho].reunioes++
+      if (c.status === 'contrato-assinado') map[nicho].contratos++
+    })
+
+    return Object.entries(map)
+      .map(([nicho, data]) => ({
+        nicho,
+        ...data,
+        taxa: data.ligacoes > 0 ? Math.round((data.reunioes / data.ligacoes) * 100) : 0,
+      }))
+      .sort((a, b) => b.taxa - a.taxa)
+      .slice(0, 10)
+  }, [monthCalls])
+
+  // Chart: last 14 days
+  const chartData = useMemo(() => {
+    return Array.from({ length: 14 }, (_, i) => {
+      const d = subDays(new Date(), 13 - i)
+      const dateStr = format(d, 'yyyy-MM-dd')
+      const dayCalls = allCalls.filter(c =>
+        format(new Date(c.timestamp), 'yyyy-MM-dd') === dateStr &&
+        (canSeeTeam || c.operadorId === currentUser.id)
+      )
+      return {
+        date: format(d, 'dd/MM'),
+        atendidas: dayCalls.filter(c => c.status === 'atendida').length,
+        perdidas: dayCalls.filter(c => c.status === 'nao-atendeu').length,
+        naoAtendeu: dayCalls.filter(c => !['atendida','nao-atendeu'].includes(c.status)).length,
+        reunioes: dayCalls.filter(c => c.reuniaoAgendada).length,
+      }
+    })
+  }, [allCalls, canSeeTeam, currentUser.id])
+
+  // Week mini-grid
+  const weekDays = useMemo(() => {
+    const startOfWeekDate = new Date()
+    startOfWeekDate.setDate(startOfWeekDate.getDate() - ((startOfWeekDate.getDay() + 6) % 7))
+    return Array.from({ length: 5 }, (_, i) => {
+      const d = new Date(startOfWeekDate)
+      d.setDate(d.getDate() + i)
+      const dateStr = format(d, 'yyyy-MM-dd')
+      const dayCalls = allCalls.filter(c =>
+        format(new Date(c.timestamp), 'yyyy-MM-dd') === dateStr &&
+        (canSeeTeam || c.operadorId === currentUser.id)
+      )
+      return {
+        label: format(d, 'EEEE', { locale: ptBR }),
+        ligacoes: dayCalls.length,
+        atingiu: dayCalls.length >= 50,
+        isToday: dateStr === today,
+      }
+    })
+  }, [allCalls, today, canSeeTeam, currentUser.id])
+
+  // Team Thermometer data
+  const teamData = useMemo(() => {
+    return activeVendedores.map(u => {
+      const uCalls = todayCalls.filter(c => c.operadorId === u.id)
+      const lig = uCalls.length
+      const reu = uCalls.filter(c => c.reuniaoAgendada).length
+      const pct = Math.round((lig / 50) * 100)
+      const lastCall = allCalls
+        .filter(c => c.operadorId === u.id)
+        .sort((a, b) => b.timestamp - a.timestamp)[0]
+      const horasInativo = lastCall ? (Date.now() - lastCall.timestamp) / 3600000 : null
+      return { user: u, lig, reu, pct, horasInativo }
+    })
+  }, [activeVendedores, todayCalls, allCalls])
+
+  // Recent 20 calls (team view)
+  const recentActivity = useMemo(() => {
+    if (!canSeeTeam) return []
+    return [...allCalls]
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 20)
+  }, [allCalls, canSeeTeam])
 
   return (
     <div className="p-6 space-y-6 font-dm">
       {/* === KPI Cards === */}
       <div className="grid grid-cols-4 gap-4">
-        {kpiCards.map((k, i) => {
+        {statsCards.map((k, i) => {
           const Icon = k.icon
           return (
             <motion.div
@@ -161,18 +208,170 @@ export default function Dashboard({ user, isAdmin, calls, pipelineValue, alerts,
                 </div>
               </div>
               <div className="font-syne font-black text-3xl" style={{ color: k.color }}>
-                {k.value}{k.suffix}
+                {k.value}
               </div>
-              <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>meta: 50 lig • 5 reuniões</p>
-              {k.value !== null && (
-                <div className="mt-3">
-                  <ProgressBar value={(k.value / k.max) * 100} color={k.color} height={4} />
-                </div>
-              )}
+              <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>{k.meta}</p>
             </motion.div>
           )
         })}
       </div>
+
+      {canSeeTeam && (
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{
+            fontFamily: 'Syne, sans-serif', fontWeight: 800,
+            fontSize: '16px', marginBottom: '16px', color: 'var(--accent)',
+          }}>
+            ⚡ Situação Atual da Equipe — {format(new Date(), "EEEE dd/MM", { locale: ptBR })}
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: '14px',
+          }}>
+            {activeVendedores.map(vendedor => {
+              const vCalls = todayCalls.filter(c => c.operadorId === vendedor.id)
+              const vLig   = vCalls.length
+              const vReu   = vCalls.filter(c => c.reuniaoAgendada).length
+              const pLig   = Math.min(100, Math.round((vLig / 50) * 100))
+              const pReu   = Math.min(100, Math.round((vReu / 5)  * 100))
+
+              const lastCall = allCalls
+                .filter(c => c.operadorId === vendedor.id)
+                .sort((a, b) => b.timestamp - a.timestamp)[0]
+              const hoursIdle = lastCall
+                ? (Date.now() - lastCall.timestamp) / 3600000
+                : 999
+              
+              const isWorkHours = new Date().getHours() >= 8 && new Date().getHours() < 18
+              const alert = !isWorkHours ? 'ok'
+                : vLig === 0 ? 'danger'
+                : hoursIdle > 3 ? 'warning'
+                : 'ok'
+
+              const alertConfig = {
+                ok:      { color: 'var(--green)',  label: '🟢 Ativo' },
+                warning: { color: 'var(--accent)', label: '🟡 Parado' },
+                danger:  { color: 'var(--red)',    label: '🔴 Sem atividade' },
+              }
+
+              return (
+                <div key={vendedor.id} style={{
+                  background: 'var(--surface)',
+                  border: `1px solid ${alert === 'danger' ? 'rgba(224,64,96,0.3)' : 'var(--border)'}`,
+                  borderTop: `3px solid ${alertConfig[alert as keyof typeof alertConfig].color}`,
+                  borderRadius: '10px', padding: '14px 16px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                    <div style={{
+                      width: '32px', height: '32px', borderRadius: '50%',
+                      background: vendedor.avatar, display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      fontFamily: 'Syne, sans-serif', fontWeight: 800,
+                      fontSize: '13px', color: '#0a0a0f', flexShrink: 0,
+                    }}>
+                      {vendedor.nome[0].toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: '13px' }}>{vendedor.nome}</div>
+                      <div style={{ fontSize: '11px', color: alertConfig[alert as keyof typeof alertConfig].color, fontWeight: 600 }}>
+                        {alertConfig[alert as keyof typeof alertConfig].label}
+                        {lastCall && <span style={{ color: 'var(--muted)', fontWeight: 400, marginLeft: '6px' }}>
+                          · {hoursIdle < 1 ? `${Math.round(hoursIdle * 60)}min atrás` : `${Math.round(hoursIdle)}h atrás`}
+                        </span>}
+                      </div>
+                    </div>
+                    <div style={{
+                      fontFamily: 'Syne, sans-serif', fontWeight: 800,
+                      fontSize: '20px', color: pLig >= 80 ? 'var(--green)' : pLig >= 50 ? 'var(--accent)' : 'var(--red)',
+                    }}>
+                      {vLig}<span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 400 }}>/50</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--muted)', marginBottom: '3px' }}>
+                        <span>📞 LIGAÇÕES</span><span>{pLig}%</span>
+                      </div>
+                      <div style={{ height: '4px', background: 'var(--surface3)', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pLig}%`, background: pLig >= 80 ? 'var(--green)' : pLig >= 50 ? 'var(--accent)' : 'var(--red)', borderRadius: '2px', transition: 'width 0.5s' }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--muted)', marginBottom: '3px' }}>
+                        <span>🤝 REUNIÕES</span><span>{vReu}/5</span>
+                      </div>
+                      <div style={{ height: '4px', background: 'var(--surface3)', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pReu}%`, background: pReu >= 100 ? 'var(--green)' : pReu >= 40 ? 'var(--accent)' : 'var(--red)', borderRadius: '2px', transition: 'width 0.5s' }} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {canSeeTeam && nichoStats.length > 0 && (
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{
+            fontFamily: 'Syne, sans-serif', fontWeight: 800,
+            fontSize: '16px', marginBottom: '16px',
+          }}>
+            🎯 Performance por Nicho — Este Mês
+          </div>
+
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: '10px', overflow: 'hidden',
+          }}>
+            {/* Table header */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '2fr 80px 80px 80px 100px',
+              padding: '10px 16px',
+              background: 'var(--surface2)',
+              borderBottom: '1px solid var(--border)',
+              fontSize: '10px', fontWeight: 700,
+              textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)',
+            }}>
+              <span>Nicho</span>
+              <span style={{ textAlign: 'center' }}>Ligações</span>
+              <span style={{ textAlign: 'center' }}>Reuniões</span>
+              <span style={{ textAlign: 'center' }}>Contratos</span>
+              <span style={{ textAlign: 'center' }}>Taxa Conv.</span>
+            </div>
+
+            {nichoStats.map((n, i) => (
+              <div key={n.nicho} style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 80px 80px 80px 100px',
+                padding: '12px 16px',
+                borderBottom: i < nichoStats.length - 1 ? '1px solid var(--border)' : 'none',
+                alignItems: 'center',
+                fontSize: '13px',
+              }}>
+                <span style={{ fontWeight: 600 }}>{n.nicho || 'Sem nicho'}</span>
+                <span style={{ textAlign: 'center', color: 'var(--muted)' }}>{n.ligacoes}</span>
+                <span style={{ textAlign: 'center', color: 'var(--green)' }}>{n.reunioes}</span>
+                <span style={{ textAlign: 'center', color: 'var(--accent)' }}>{n.contratos}</span>
+                <span style={{ textAlign: 'center' }}>
+                  <span style={{
+                    padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
+                    background: n.taxa >= 10 ? 'rgba(48,208,144,0.15)' : n.taxa >= 5 ? 'rgba(240,192,64,0.15)' : 'rgba(224,64,96,0.15)',
+                    color: n.taxa >= 10 ? 'var(--green)' : n.taxa >= 5 ? 'var(--accent)' : 'var(--red)',
+                  }}>
+                    {n.taxa}%
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-5">
         {/* === Chart === */}

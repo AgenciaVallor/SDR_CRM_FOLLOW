@@ -1,5 +1,5 @@
 // src/pages/SemanaAtual.tsx — MÓDULO PRINCIPAL
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { User, Call, DiaStatus } from '../types'
@@ -11,13 +11,13 @@ interface DayStats {
   status: DiaStatus
   calls: Call[]
 }
-import { getCalls, findSemana, addSemana, updateSemana } from '../utils/storage'
+import { useCalls, getStatusDia } from '../hooks/useCalls'
+import { findSemana, addSemana, updateSemana, upsertSemana } from '../utils/storage'
 import {
   getWeekKey, getWeekDates, getWeekLabel, getCurrentWeekKey, isThisWeek,
   getMesLabel, getSemanaNumber, startOfDayTs, endOfDayTs
 } from '../utils/weekUtils'
 import { makeRegistroSemanal } from '../hooks/useWeek'
-import { getStatusDia } from '../hooks/useCalls'
 
 import { WeekTotalsBar } from '../components/week/WeekTotalsBar'
 import { DayCard } from '../components/week/DayCard'
@@ -40,6 +40,13 @@ export default function SemanaAtual({ user, isAdmin, users, onNewCall }: Props) 
   const [sabadoData, setSabadoData] = useState<{ aprendizados?: string; plano?: string; finalizado?: boolean }>({})
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [refreshCount, setRefreshCount] = useState(0)
+  const [semanaRecord, setSemanaRecord] = useState<any>(null)
+  const { calls: allCalls, loading, reload } = useCalls(selectedUserId, isAdmin)
+
+  useEffect(() => {
+    findSemana(selectedUserId, weekKey).then(setSemanaRecord)
+  }, [selectedUserId, weekKey, refreshCount])
+
   const refresh = () => setRefreshCount(c => c + 1)
 
   const mesLabel = getMesLabel(weekKey)
@@ -52,46 +59,36 @@ export default function SemanaAtual({ user, isAdmin, users, onNewCall }: Props) 
   const getDayStats = useCallback((dateStr: string): DayStats => {
     const start = startOfDayTs(dateStr)
     const end = endOfDayTs(dateStr)
-    const ds = getCalls().filter(c =>
+    const ds = allCalls.filter((c: Call) =>
       c.operadorId === selectedUserId &&
       c.timestamp >= start &&
       c.timestamp <= end
     )
     const ligacoes = ds.length
-    const reunioes = ds.filter(c => c.reuniaoAgendada).length
+    const reunioes = ds.filter((c: Call) => c.reuniaoAgendada).length
     return {
       ligacoes,
       reunioes,
-      atendidas: ds.filter(c => c.status === 'atendida').length,
+      atendidas: ds.filter((c: Call) => c.status === 'atendida').length,
       status: getStatusDia(ligacoes, reunioes),
       calls: ds,
     }
-  }, [selectedUserId, refreshCount])
-
-  // Get annotations from storage
-  const getSemanaRecord = useCallback(() => {
-    return findSemana(selectedUserId, weekKey)
-  }, [selectedUserId, weekKey])
+  }, [selectedUserId, allCalls])
 
   const getAnotacao = (dia: string) => {
-    const rec = getSemanaRecord()
-    if (!rec) return anotacaoDia[dia] ?? ''
-    return (rec.dias as any)[dia]?.anotacao_dia ?? anotacaoDia[dia] ?? ''
+    if (!semanaRecord) return anotacaoDia[dia] ?? ''
+    return (semanaRecord.dias as any)[dia]?.anotacao_dia ?? anotacaoDia[dia] ?? ''
   }
 
   const saveAnotacao = async (dia: string, value: string) => {
-    let rec = findSemana(selectedUserId, weekKey)
-    if (!rec) {
-      rec = makeRegistroSemanal(selectedUserId, weekKey)
-      addSemana(rec)
-    }
-    updateSemana(rec.id, {
+    await upsertSemana(selectedUserId, weekKey, {
       dias: {
-        ...rec.dias,
-        [dia]: { ...(rec.dias as any)[dia], anotacao_dia: value },
+        ...(semanaRecord?.dias || {}),
+        [dia]: { ...(semanaRecord?.dias as any)?.[dia], anotacao_dia: value },
       },
     })
     setAnotacaoDia(prev => ({ ...prev, [dia]: value }))
+    refresh()
   }
 
   // Week totals
@@ -205,24 +202,27 @@ export default function SemanaAtual({ user, isAdmin, users, onNewCall }: Props) 
           {/* SÁBADO */}
           <SabadoCard
             weekStats={weekStats}
-            sabDados={getSemanaRecord()?.dias.sabado ?? sabadoData}
-            onChangeAprendizados={val => {
+            sabDados={semanaRecord?.dias?.sabado || sabadoData}
+            onChangeAprendizados={async val => {
               setSabadoData(p => ({ ...p, aprendizados: val }))
-              let rec = findSemana(selectedUserId, weekKey)
-              if (!rec) { rec = makeRegistroSemanal(selectedUserId, weekKey); addSemana(rec) }
-              updateSemana(rec.id, { dias: { ...rec.dias, sabado: { ...rec.dias.sabado, aprendizados: val } } })
+              await upsertSemana(selectedUserId, weekKey, {
+                dias: { ...(semanaRecord?.dias || {}), sabado: { ...semanaRecord?.dias?.sabado, aprendizados: val } }
+              })
+              refresh()
             }}
-            onChangePlano={val => {
+            onChangePlano={async val => {
               setSabadoData(p => ({ ...p, plano: val }))
-              let rec = findSemana(selectedUserId, weekKey)
-              if (!rec) { rec = makeRegistroSemanal(selectedUserId, weekKey); addSemana(rec) }
-              updateSemana(rec.id, { dias: { ...rec.dias, sabado: { ...rec.dias.sabado, plano_proxima_semana: val } } })
+              await upsertSemana(selectedUserId, weekKey, {
+                dias: { ...(semanaRecord?.dias || {}), sabado: { ...semanaRecord?.dias?.sabado, plano_proxima_semana: val } }
+              })
+              refresh()
             }}
-            onFinalizar={() => {
-              let rec = findSemana(selectedUserId, weekKey)
-              if (!rec) { rec = makeRegistroSemanal(selectedUserId, weekKey); addSemana(rec) }
-              updateSemana(rec.id, { dias: { ...rec.dias, sabado: { ...rec.dias.sabado, finalizado: true } } })
+            onFinalizar={async () => {
+              await upsertSemana(selectedUserId, weekKey, {
+                dias: { ...(semanaRecord?.dias || {}), sabado: { ...semanaRecord?.dias?.sabado, finalizado: true } }
+              })
               setSabadoData(p => ({ ...p, finalizado: true }))
+              refresh()
             }}
           />
         </div>
@@ -231,6 +231,7 @@ export default function SemanaAtual({ user, isAdmin, users, onNewCall }: Props) 
       <AnimatePresence>
         {selectedDayItem && selectedDayStats && (
           <DayPanel
+            user={user}
             dateStr={selectedDayItem.date}
             diaSemana={selectedDayItem.dia}
             stats={selectedDayStats}
@@ -250,7 +251,7 @@ export default function SemanaAtual({ user, isAdmin, users, onNewCall }: Props) 
         onClose={() => setUploadModalOpen(false)}
         onSuccess={() => {
           setUploadModalOpen(false)
-          refresh()
+          reload()
         }}
       />
     </div>

@@ -1,11 +1,6 @@
-// src/pages/Usuarios.tsx
-import React, { useState } from 'react'
-import { getUsers, saveUsers, deleteUser } from '../utils/storage'
+import { useState, useEffect } from 'react'
+import { getUsers, createUser, updateUser, deleteUser, genId } from '../utils/storage'
 import { User } from '../types'
-
-function generateId(): string {
-  return 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2)
-}
 
 const AVATAR_COLORS = [
   '#f0c040', '#4080f0', '#30d090', '#e04060',
@@ -13,7 +8,8 @@ const AVATAR_COLORS = [
 ]
 
 export default function Usuarios({ onReload }: { onReload?: () => void }) {
-  const [users, setUsers] = useState<User[]>(() => getUsers())
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [form, setForm] = useState({
@@ -23,13 +19,25 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
     avatar: '#f0c040', ativo: true,
   })
   const [formError, setFormError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-  const session = JSON.parse(sessionStorage.getItem('vallor_session') || '{}')
+  const sessionRaw = sessionStorage.getItem('vallor_session')
+  const session = sessionRaw ? JSON.parse(sessionRaw) : {}
 
-  function refreshUsers() {
-    setUsers(getUsers())
-    onReload?.()
+  async function refreshUsers() {
+    setLoading(true)
+    try {
+      const all = await getUsers()
+      setUsers(all)
+      onReload?.()
+    } finally {
+      setLoading(false)
+    }
   }
+
+  useEffect(() => {
+    refreshUsers()
+  }, [])
 
   function openCreate() {
     setEditingUser(null)
@@ -54,82 +62,76 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
     setModalOpen(true)
   }
 
-  function handleSave() {
+  async function handleSave() {
     setFormError('')
-
     if (!form.nome.trim()) { setFormError('Nome é obrigatório.'); return }
     if (!form.email.trim()) { setFormError('Email é obrigatório.'); return }
 
-    const all = getUsers()
+    setSubmitting(true)
+    try {
+      if (!editingUser) {
+        if (!form.senha || form.senha.length < 6) {
+          setFormError('Senha obrigatória com mínimo 6 caracteres.'); return
+        }
+        if (form.senha !== form.confirmSenha) {
+          setFormError('As senhas não coincidem.'); return
+        }
 
-    if (!editingUser) {
-      if (all.find(u => u.email === form.email.trim().toLowerCase())) {
-        setFormError('Este email já está cadastrado.'); return
-      }
-      if (!form.senha || form.senha.length < 6) {
-        setFormError('Senha obrigatória com mínimo 6 caracteres.'); return
-      }
-      if (form.senha !== form.confirmSenha) {
-        setFormError('As senhas não coincidem.'); return
-      }
-
-      const newUser: User = {
-        id: generateId(),
-        nome: form.nome.trim(),
-        email: form.email.trim().toLowerCase(),
-        senha: form.senha,
-        role: form.role,
-        avatar: form.avatar,
-        metaDiariaLigacoes: form.metaDiariaLigacoes,
-        metaDiariaReunioes: form.metaDiariaReunioes,
-        ativo: true,
-        criadoEm: Date.now(),
-      }
-      saveUsers([...all, newUser])
-    } else {
-      const duplicate = all.find(
-        u => u.email === form.email.trim().toLowerCase() && u.id !== editingUser.id
-      )
-      if (duplicate) { setFormError('Este email já está em uso.'); return }
-
-      if (form.senha && form.senha.length < 6) {
-        setFormError('Nova senha precisa ter mínimo 6 caracteres.'); return
-      }
-      if (form.senha && form.senha !== form.confirmSenha) {
-        setFormError('As senhas não coincidem.'); return
-      }
-
-      const updated = all.map(u => {
-        if (u.id !== editingUser.id) return u
-        // Master admin: cannot change email or ativo
-        const isMaster = u.email === 'valloragencia@gmail.com'
-        return {
-          ...u,
+        const result = await createUser({
           nome: form.nome.trim(),
-          email: isMaster ? u.email : form.email.trim().toLowerCase(),
-          senha: form.senha ? form.senha : u.senha,
+          email: form.email.trim().toLowerCase(),
+          senha: form.senha,
           role: form.role,
           avatar: form.avatar,
           metaDiariaLigacoes: form.metaDiariaLigacoes,
           metaDiariaReunioes: form.metaDiariaReunioes,
+        })
+
+        if (!result.success) {
+          setFormError(result.error || 'Erro ao criar usuário.')
+          return
+        }
+      } else {
+        if (form.senha && form.senha.length < 6) {
+          setFormError('Nova senha precisa ter mínimo 6 caracteres.'); return
+        }
+        if (form.senha && form.senha !== form.confirmSenha) {
+          setFormError('As senhas não coincidem.'); return
+        }
+
+        const isMaster = editingUser.email === 'valloragencia@gmail.com'
+        const updates: any = {
+          nome: form.nome.trim(),
+          email: isMaster ? editingUser.email : form.email.trim().toLowerCase(),
+          role: form.role,
+          avatar: form.avatar,
+          meta_ligacoes: form.metaDiariaLigacoes,
+          meta_reunioes: form.metaDiariaReunioes,
           ativo: isMaster ? true : form.ativo,
         }
-      })
-      saveUsers(updated)
+        
+        const result = await updateUser(editingUser.id, updates, form.senha || undefined)
 
-      // If admin deactivated current session user, force logout
-      if (editingUser.id === session.userId && !form.ativo) {
-        sessionStorage.removeItem('vallor_session')
-        window.location.href = '/'
-        return
+        if (!result.success) {
+          setFormError(result.error || 'Erro ao atualizar usuário.')
+          return
+        }
+
+        if (editingUser.id === session.userId && !form.ativo) {
+          sessionStorage.removeItem('vallor_session')
+          window.location.href = '/'
+          return
+        }
       }
-    }
 
-    refreshUsers()
-    setModalOpen(false)
+      await refreshUsers()
+      setModalOpen(false)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  function handleDelete(user: User) {
+  async function handleDelete(user: User) {
     if (user.email === 'valloragencia@gmail.com') {
       alert('O administrador master não pode ser excluído.')
       return
@@ -139,23 +141,36 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
       return
     }
     const confirmed = confirm(
-      `Excluir "${user.nome}"?\n\nEsta ação remove o acesso imediatamente. O usuário não conseguirá mais entrar no sistema.`
+      `Excluir "${user.nome}"?\n\nEsta ação remove o acesso imediatamente.`
     )
     if (!confirmed) return
 
-    deleteUser(user.id)
-    refreshUsers()
+    setLoading(true)
+    try {
+      const result = await deleteUser(user.id)
+      if (!result.success) {
+        alert(result.error || 'Erro ao excluir usuário.')
+      } else {
+        await refreshUsers()
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
-  function handleToggleAtivo(user: User) {
+  async function handleToggleAtivo(user: User) {
     if (user.email === 'valloragencia@gmail.com') return
-
-    const all = getUsers()
-    const updated = all.map(u =>
-      u.id === user.id ? { ...u, ativo: !u.ativo } : u
-    )
-    saveUsers(updated)
-    refreshUsers()
+    setLoading(true)
+    try {
+      const result = await updateUser(user.id, { ativo: !user.ativo })
+      if (!result.success) {
+        alert(result.error || 'Erro ao mudar status do usuário.')
+      } else {
+        await refreshUsers()
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -193,9 +208,11 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
       {/* Users list */}
       <div style={{
         background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: '10px', overflow: 'hidden'
+        borderRadius: '10px', overflow: 'hidden', minHeight: '100px'
       }}>
-        {users.map((user, i) => {
+        {loading && <div style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Carregando colaboradores...</div>}
+        {!loading && users.length === 0 && <div style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Nenhum colaborador encontrado.</div>}
+        {!loading && users.map((user, i) => {
           const isMaster = user.email === 'valloragencia@gmail.com'
           const isCurrentUser = user.id === session.userId
           return (
@@ -366,6 +383,10 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
                     value={(form as Record<string, unknown>)[field.key] as string}
                     onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}
                     disabled={field.key === 'email' && editingUser?.email === 'valloragencia@gmail.com'}
+                    autoComplete={field.type === 'password' ? 'current-password' : undefined}
+                    autoCorrect={field.type === 'password' ? 'off' : undefined}
+                    autoCapitalize={field.type === 'password' ? 'off' : undefined}
+                    spellCheck={field.type === 'password' ? false : undefined}
                     style={{
                       width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)',
                       borderRadius: '8px', padding: '10px 14px', color: 'var(--text)',
@@ -491,15 +512,17 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
               </button>
               <button
                 onClick={handleSave}
+                disabled={submitting}
                 style={{
                   padding: '8px 18px', borderRadius: '8px',
                   background: 'var(--accent)', border: 'none',
-                  color: '#0a0a0f', cursor: 'pointer',
+                  color: '#0a0a0f', cursor: submitting ? 'not-allowed' : 'pointer',
                   fontSize: '13px', fontWeight: 700,
                   fontFamily: 'DM Sans, sans-serif',
+                  opacity: submitting ? 0.7 : 1,
                 }}
               >
-                {editingUser ? 'Salvar Alterações' : 'Criar Colaborador'}
+                {submitting ? 'Salvando...' : editingUser ? 'Salvar Alterações' : 'Criar Colaborador'}
               </button>
             </div>
           </div>

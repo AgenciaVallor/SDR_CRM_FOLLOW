@@ -1,11 +1,12 @@
-import { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
+import { User } from '@/types'
 import {
   parseExcelFile,
   calcularDistribuicao,
   distribuirContatos,
   RawContact,
 } from '@/utils/listImport'
-import { getCalls, saveCalls, getUsers } from '@/utils/storage'
+import { getCalls, saveCall, getUsers } from '@/utils/storage'
 import { getWeekKey, getMondayOfWeek, fmtBR } from '@/utils/weekUtils'
 import { addDays } from 'date-fns'
 
@@ -37,7 +38,10 @@ export function UploadListaModal({
   const [operadorNome, setOperadorNome] = useState(currentUserNome)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const users = getUsers().filter(u => u.ativo && u.role === 'vendedor')
+  const [users, setUsers] = useState<User[]>([])
+  useEffect(() => {
+    getUsers().then(u => setUsers(u.filter((u: User) => u.role === 'vendedor' && u.ativo)))
+  }, [])
   const distribuicao = contacts.length > 0 ? calcularDistribuicao(contacts.length, weekKey) : []
 
   const thisWeek = getWeekKey(new Date())
@@ -83,9 +87,9 @@ export function UploadListaModal({
     }
   }
 
-  function handleImportar() {
+  async function handleImportar() {
     if (contacts.length === 0) return
-    const existing = getCalls()
+    const existing = await getCalls()
     const { calls, duplicatasIgnoradas } = distribuirContatos(
       contacts,
       weekKey,
@@ -93,7 +97,9 @@ export function UploadListaModal({
       operadorNome,
       existing
     )
-    saveCalls([...existing, ...calls])
+    for (const call of calls) {
+      await saveCall(call)
+    }
     const total = calls.length
     const msg = duplicatasIgnoradas > 0
       ? `✅ ${total} contatos importados! ${duplicatasIgnoradas} duplicatas ignoradas.`

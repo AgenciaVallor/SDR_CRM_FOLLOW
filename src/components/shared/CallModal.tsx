@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Phone, X, CheckSquare, Square, Calendar, Clock, MapPin, Bell, Link2, MessageCircle } from 'lucide-react'
 import { Modal } from '../ui/Modal'
-import { Call, CallStatus, MeetingLocal, ChecklistCall } from '../../types'
+import { Call, CallStatus, MeetingLocal, ChecklistCall, Lead } from '../../types'
 import { formatPhone } from '../../utils/formatters'
 import { openWhatsApp } from '../../utils/whatsapp'
 import { getLeads, getTentativas } from '../../utils/storage'
@@ -111,14 +111,25 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
   const [scriptOpen, setScriptOpen] = useState(false)
   const [selectedNicho, setSelectedNicho] = useState('')
 
-  const leads = getLeads()
+  const [leads, setLeads] = useState<Lead[]>([])
+  useEffect(() => {
+    getLeads().then(setLeads)
+  }, [])
+
   const filteredLeads = leadSearch.length > 1
     ? leads.filter(l => l.nome.toLowerCase().includes(leadSearch.toLowerCase()) || l.empresa.toLowerCase().includes(leadSearch.toLowerCase()))
     : []
 
   // Tentativas counter
   const numeroLimpo = numero.replace(/\D/g, '')
-  const tentativasAnteriores = numeroLimpo.length >= 8 ? getTentativas(numeroLimpo, userId) : 0
+  const [tentativasAnteriores, setTentativasAnteriores] = useState(0)
+  useEffect(() => {
+    const fetchTent = async () => {
+      const tent = await getTentativas(numeroLimpo, userId)
+      setTentativasAnteriores(tent)
+    }
+    if (numeroLimpo.length >= 8) fetchTent()
+  }, [numeroLimpo, userId])
 
   const checklistScore = Object.values(checklist).filter(Boolean).length
 
@@ -152,6 +163,7 @@ export default function CallModal({ open, onClose, onSave, userId, userName, tod
       reuniaoData: reuniao ? reuniaoData : null,
       reuniaoHora: reuniao ? reuniaoHora : null,
       reuniaoLocal,
+      reuniaoObs: reuniaoObs || '',
       anotacao: anotacao.trim(),
       checklist,
       followup,

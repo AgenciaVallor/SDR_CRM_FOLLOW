@@ -1,12 +1,11 @@
-// src/hooks/useWeek.ts
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { RegistroSemanal, DiaRegistro, SabadoRegistro } from '../types'
-import { getSemanas, findSemana, addSemana, updateSemana } from '../utils/storage'
+import { getSemana as fetchSemana, upsertSemana } from '../utils/storage'
 import {
-  getCurrentWeekKey, getWeekDates, getDateForWeekDay,
+  getCurrentWeekKey, getDateForWeekDay,
   getMesLabel, getSemanaNumber, prevWeekKey, nextWeekKey
 } from '../utils/weekUtils'
-import { getISOWeek, getISOWeekYear } from 'date-fns'
+import { getISOWeekYear } from 'date-fns'
 
 function makeDiaRegistro(date: string): DiaRegistro {
   return {
@@ -61,43 +60,57 @@ export function makeRegistroSemanal(userId: string, weekKey: string): RegistroSe
 
 export function useWeek(userId: string) {
   const [weekKey, setWeekKey] = useState(getCurrentWeekKey)
+  const [semana, setSemana] = useState<RegistroSemanal | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const getOrCreateSemana = useCallback((uid: string, wKey: string): RegistroSemanal => {
-    let s = findSemana(uid, wKey)
-    if (!s) {
-      s = makeRegistroSemanal(uid, wKey)
-      addSemana(s)
+  const reload = useCallback(async () => {
+    if (!userId) return
+    setLoading(true)
+    try {
+      let s = await fetchSemana(userId, weekKey)
+      if (!s) {
+        s = makeRegistroSemanal(userId, weekKey)
+        await upsertSemana(userId, weekKey, s)
+      }
+      setSemana(s)
+    } finally {
+      setLoading(false)
     }
-    return s
-  }, [])
+  }, [userId, weekKey])
 
-  const getSemana = useCallback((): RegistroSemanal => {
-    return getOrCreateSemana(userId, weekKey)
-  }, [userId, weekKey, getOrCreateSemana])
+  useEffect(() => {
+    reload()
+  }, [reload])
 
-  const saveAnotacaoDia = useCallback((dia: string, anotacao: string) => {
-    const s = getOrCreateSemana(userId, weekKey)
-    updateSemana(s.id, {
+  const getSemana = () => semana
+
+  const saveAnotacaoDia = async (dia: string, anotacao: string) => {
+    if (!semana) return
+    const updated = {
       dias: {
-        ...s.dias,
-        [dia]: { ...(s.dias as any)[dia], anotacao_dia: anotacao },
+        ...semana.dias,
+        [dia]: { ...(semana.dias as any)[dia], anotacao_dia: anotacao },
       },
-    })
-  }, [userId, weekKey, getOrCreateSemana])
+    }
+    await upsertSemana(userId, weekKey, updated)
+    await reload()
+  }
 
-  const saveSabadoField = useCallback((field: keyof SabadoRegistro, value: string | boolean) => {
-    const s = getOrCreateSemana(userId, weekKey)
-    updateSemana(s.id, {
+  const saveSabadoField = async (field: keyof SabadoRegistro, value: string | boolean) => {
+    if (!semana) return
+    const updated = {
       dias: {
-        ...s.dias,
-        sabado: { ...s.dias.sabado, [field]: value },
+        ...semana.dias,
+        sabado: { ...semana.dias.sabado, [field]: value },
       },
-    })
-  }, [userId, weekKey, getOrCreateSemana])
+    }
+    await upsertSemana(userId, weekKey, updated)
+    await reload()
+  }
 
   const goToPrevWeek = useCallback(() => setWeekKey(k => prevWeekKey(k)), [])
   const goToNextWeek = useCallback(() => setWeekKey(k => nextWeekKey(k)), [])
   const goToCurrentWeek = useCallback(() => setWeekKey(getCurrentWeekKey()), [])
 
-  return { weekKey, setWeekKey, getSemana, saveAnotacaoDia, saveSabadoField, goToPrevWeek, goToNextWeek, goToCurrentWeek }
+  return { weekKey, setWeekKey, getSemana, saveAnotacaoDia, saveSabadoField, goToPrevWeek, goToNextWeek, goToCurrentWeek, loading }
 }

@@ -159,6 +159,7 @@ export function distribuirContatos(
         reuniaoData:     null,
         reuniaoHora:     null,
         reuniaoLocal:    null,
+        reuniaoObs:      '',
         followup:        false,
         followupData:    null,
         followupNota:    '',

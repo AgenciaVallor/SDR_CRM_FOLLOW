@@ -1,6 +1,7 @@
 // src/App.tsx — Main app with routing and polling
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { Session, User } from './types'
 import { ToastProvider } from './context/ToastContext'
 import { runSeed } from './utils/seed'
 import { useAuth } from './hooks/useAuth'
@@ -8,8 +9,7 @@ import { useCalls } from './hooks/useCalls'
 import { useLeads } from './hooks/useLeads'
 import { useAlerts } from './hooks/useAlerts'
 import { isBusinessHours } from './utils/weekUtils'
-import { getCalls } from './utils/storage'
-import { getUsers } from './utils/storage'
+import { loginUser, logoutUser, getCurrentSession, getCalls, getUsers } from './utils/storage'
 import { format } from 'date-fns'
 
 import Sidebar from './components/layout/Sidebar'
@@ -33,23 +33,7 @@ import Configuracoes from './pages/Configuracoes'
 // Run seed before first render
 runSeed()
 
-function validateSession(): boolean {
-  const raw = sessionStorage.getItem('vallor_session')
-  if (!raw) return false
-  try {
-    const session = JSON.parse(raw)
-    const users = getUsers()
-    const user = users.find(u => u.id === session.userId)
-    if (!user || !user.ativo) {
-      sessionStorage.removeItem('vallor_session')
-      return false
-    }
-    return true
-  } catch {
-    sessionStorage.removeItem('vallor_session')
-    return false
-  }
-}
+// validateSession removed - logic moved to getCurrentSession
 
 export default function App() {
   return (
@@ -60,18 +44,25 @@ export default function App() {
 }
 
 function AppInner() {
-  const { session, user, login, logout, isAdmin } = useAuth()
-  
-  // Validate session on every protected render
-  const isSessionValid = validateSession()
+  const { user, login, logout, isAdmin, setUser, loading: authLoading } = useAuth()
+  const [appLoading, setAppLoading] = useState(true)
+  const [loginLoading, setLoginLoading] = useState(false)
+  const [loginError, setLoginError] = useState('')
+
+  useEffect(() => {
+    getCurrentSession().then(u => {
+      if (u) setUser(u)
+      setAppLoading(false)
+    })
+  }, [setUser])
 
   const [page, setPage] = useState('dashboard')
   const [callModalOpen, setCallModalOpen] = useState(false)
   const [callModalPrefill, setCallModalPrefill] = useState<any>(null)
   const [newLeadOpen, setNewLeadOpen] = useState(false)
-
-  const { calls, add: addCall, reload: reloadCalls, getTodayStats, getFollowups } = useCalls(user?.id, isAdmin)
-  const { leads, add: addLead, update: updateLead, moveColumn, reload: reloadLeads, getPipelineValue } = useLeads(user?.id, isAdmin)
+  
+  const { calls, add: addCall, reload: reloadCalls, getTodayStats, getFollowups, loading: callsLoading } = useCalls(user?.id, isAdmin)
+  const { leads, add: addLead, update: updateLead, moveColumn, reload: reloadLeads, getPipelineValue, loading: leadsLoading } = useLeads(user?.id, isAdmin)
   const { alerts, checkInactivity } = useAlerts()
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -102,22 +93,41 @@ function AppInner() {
 
   const todayStats = user ? getTodayStats(user.id) : { ligacoes: 0, reunioes: 0 }
   const pipelineValue = getPipelineValue()
-  const users = getUsers()
+
+  const [allUsers, setAllUsers] = useState<User[]>([])
+  useEffect(() => {
+    if (isAdmin) {
+      getUsers().then(setAllUsers)
+    }
+  }, [isAdmin])
 
   const openCallModal = useCallback((prefill?: any) => {
     setCallModalPrefill(prefill ?? null)
     setCallModalOpen(true)
   }, [])
 
-  const handleSaveCall = useCallback((call: any) => {
-    addCall(call)
-    reloadCalls()
-  }, [addCall, reloadCalls])
+  async function handleLogin(email: string, senha: string) {
+    setLoginLoading(true)
+    setLoginError('')
+    const u = await login(email, senha)
+    if (!u) {
+      setLoginError('Usuário ou senha incorretos.')
+    }
+    setLoginLoading(false)
+  }
 
-  if (!session || !user || !isSessionValid) {
+  async function handleLogout() {
+    await logout()
+  }
+
+  if (appLoading || authLoading) {
+    return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0f', color: '#fff' }}>Carregando...</div>
+  }
+
+  if (!user) {
     return (
       <AnimatePresence>
-        <Login onLogin={login} />
+        <Login onLogin={handleLogin} loading={loginLoading} error={loginError} />
       </AnimatePresence>
     )
   }
@@ -127,7 +137,7 @@ function AppInner() {
       case 'dashboard':
         return <Dashboard user={user} isAdmin={isAdmin} calls={calls} pipelineValue={pipelineValue} alerts={alerts} setPage={setPage} />
       case 'semana':
-        return <SemanaAtual user={user} isAdmin={isAdmin} users={users} onNewCall={openCallModal} />
+        return <SemanaAtual user={user} isAdmin={isAdmin} users={allUsers} onNewCall={openCallModal} />
       case 'ligacoes':
         return <Ligacoes calls={calls} user={user} isAdmin={isAdmin} onNewCall={() => openCallModal()} />
       case 'followup':
@@ -189,15 +199,18 @@ function AppInner() {
       </div>
 
       {/* Global Call Modal */}
-      {user && (
+      {callModalOpen && user && (
         <CallModal
           open={callModalOpen}
-          onClose={() => { setCallModalOpen(false); setCallModalPrefill(null) }}
-          onSave={handleSaveCall}
+          onClose={() => setCallModalOpen(false)}
+          onSave={async (call: any) => {
+            await addCall(call)
+            reloadCalls()
+          }}
           userId={user.id}
           userName={user.nome}
-          todayStats={todayStats}
           prefill={callModalPrefill}
+          todayStats={todayStats}
         />
       )}
 
