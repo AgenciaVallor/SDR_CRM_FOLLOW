@@ -21,7 +21,8 @@ export default function Login({ onLogin, loading, error }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setInternalError('')
-    await onLogin(email, senha)
+    const cleanEmail = email.trim().toLowerCase()
+    await onLogin(cleanEmail, senha)
     if (error || internalError) {
       setShaking(true)
       setTimeout(() => setShaking(false), 600)

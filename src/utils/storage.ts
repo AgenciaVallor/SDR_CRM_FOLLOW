@@ -10,7 +10,8 @@ export function genId(): string {
 // ── AUTH ────────────────────────────────────────────────
 
 export async function loginUser(email: string, senha: string): Promise<User | null> {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha })
+  const cleanEmail = email.trim().toLowerCase()
+  const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: senha })
   if (error || !data.user) return null
 
   const { data: userData } = await supabase
@@ -20,7 +21,7 @@ export async function loginUser(email: string, senha: string): Promise<User | nu
     .single()
 
   if (!userData || !userData.ativo) {
-    await supabase.auth.signOut()
+    if (data.user) await supabase.auth.signOut()
     return null
   }
 
