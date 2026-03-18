@@ -3,6 +3,8 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { User, Call, DiaStatus } from '../types'
+import { supabase } from '../lib/supabase'
+
 
 interface DayStats {
   ligacoes: number
@@ -40,12 +42,52 @@ export default function SemanaAtual({ user, isAdmin, users, onNewCall }: Props) 
   const [sabadoData, setSabadoData] = useState<{ aprendizados?: string; plano?: string; finalizado?: boolean }>({})
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [refreshCount, setRefreshCount] = useState(0)
-  const [semanaRecord, setSemanaRecord] = useState<any>(null)
-  const { calls: allCalls, loading, reload } = useCalls(selectedUserId, isAdmin)
+  const [semana, setSemana] = useState<any>(null)
+  const [calls, setCalls] = useState<Call[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    findSemana(selectedUserId, weekKey).then(setSemanaRecord)
-  }, [selectedUserId, weekKey, refreshCount])
+    if (!user?.id) return
+    setLoading(true)
+    async function load() {
+      try {
+        const { data } = await supabase
+          .from('semanas')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('semana_key', weekKey)
+          .single()
+        setSemana(data || null)
+      } catch (err) {
+        console.error('SemanaAtual load error:', err)
+        setSemana(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [weekKey, user?.id, refreshCount])
+
+  useEffect(() => {
+    if (!weekKey || !user) return
+    async function loadCalls() {
+      try {
+        const { data } = await supabase
+          .from('calls')
+          .select('*')
+          .eq('operador_id', user.id)
+          .eq('semana_key', weekKey)
+          .order('criado_em', { ascending: false })
+        setCalls(data || [])
+      } catch (err) {
+        setCalls([])
+      }
+    }
+    loadCalls()
+  }, [weekKey, user?.id, refreshCount])
+
+  const reload = () => setRefreshCount(c => c + 1)
+
 
   const refresh = () => setRefreshCount(c => c + 1)
 
@@ -59,7 +101,7 @@ export default function SemanaAtual({ user, isAdmin, users, onNewCall }: Props) 
   const getDayStats = useCallback((dateStr: string): DayStats => {
     const start = startOfDayTs(dateStr)
     const end = endOfDayTs(dateStr)
-    const ds = allCalls.filter((c: Call) =>
+    const ds = calls.filter((c: Call) =>
       c.operadorId === selectedUserId &&
       c.timestamp >= start &&
       c.timestamp <= end
@@ -73,18 +115,18 @@ export default function SemanaAtual({ user, isAdmin, users, onNewCall }: Props) 
       status: getStatusDia(ligacoes, reunioes),
       calls: ds,
     }
-  }, [selectedUserId, allCalls])
+  }, [selectedUserId, calls])
 
   const getAnotacao = (dia: string) => {
-    if (!semanaRecord) return anotacaoDia[dia] ?? ''
-    return (semanaRecord.dias as any)[dia]?.anotacao_dia ?? anotacaoDia[dia] ?? ''
+    if (!semana) return anotacaoDia[dia] ?? ''
+    return (semana.dias as any)[dia]?.anotacao_dia ?? anotacaoDia[dia] ?? ''
   }
 
   const saveAnotacao = async (dia: string, value: string) => {
     await upsertSemana(selectedUserId, weekKey, {
       dias: {
-        ...(semanaRecord?.dias || {}),
-        [dia]: { ...(semanaRecord?.dias as any)?.[dia], anotacao_dia: value },
+        ...(semana?.dias || {}),
+        [dia]: { ...(semana?.dias as any)?.[dia], anotacao_dia: value },
       },
     })
     setAnotacaoDia(prev => ({ ...prev, [dia]: value }))
@@ -104,6 +146,13 @@ export default function SemanaAtual({ user, isAdmin, users, onNewCall }: Props) 
 
   const selectedDayItem = selectedDay ? weekDates.find(d => d.date === selectedDay) : null
   const selectedDayStats = selectedDay ? getDayStats(selectedDay) : null
+
+  if (loading) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', 
+      height:'60vh', color:'#7070a0', fontSize:'14px' }}>
+      Carregando semana...
+    </div>
+  )
 
   return (
     <div className="h-full flex relative">
@@ -202,24 +251,24 @@ export default function SemanaAtual({ user, isAdmin, users, onNewCall }: Props) 
           {/* SÁBADO */}
           <SabadoCard
             weekStats={weekStats}
-            sabDados={semanaRecord?.dias?.sabado || sabadoData}
+            sabDados={semana?.dias?.sabado || sabadoData}
             onChangeAprendizados={async val => {
               setSabadoData(p => ({ ...p, aprendizados: val }))
               await upsertSemana(selectedUserId, weekKey, {
-                dias: { ...(semanaRecord?.dias || {}), sabado: { ...semanaRecord?.dias?.sabado, aprendizados: val } }
+                dias: { ...(semana?.dias || {}), sabado: { ...semana?.dias?.sabado, aprendizados: val } }
               })
               refresh()
             }}
             onChangePlano={async val => {
               setSabadoData(p => ({ ...p, plano: val }))
               await upsertSemana(selectedUserId, weekKey, {
-                dias: { ...(semanaRecord?.dias || {}), sabado: { ...semanaRecord?.dias?.sabado, plano_proxima_semana: val } }
+                dias: { ...(semana?.dias || {}), sabado: { ...semana?.dias?.sabado, plano_proxima_semana: val } }
               })
               refresh()
             }}
             onFinalizar={async () => {
               await upsertSemana(selectedUserId, weekKey, {
-                dias: { ...(semanaRecord?.dias || {}), sabado: { ...semanaRecord?.dias?.sabado, finalizado: true } }
+                dias: { ...(semana?.dias || {}), sabado: { ...semana?.dias?.sabado, finalizado: true } }
               })
               setSabadoData(p => ({ ...p, finalizado: true }))
               refresh()

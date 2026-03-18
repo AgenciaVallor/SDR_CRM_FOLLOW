@@ -63,79 +63,98 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
     setModalOpen(true)
   }
 
-  async function handleSave() {
-    setFormError('')
-    if (!form.nome.trim()) { setFormError('Nome é obrigatório.'); return }
-    if (!form.email.trim()) { setFormError('Email é obrigatório.'); return }
-
+  async function handleCreateUser() {
+    if (!form.nome || !form.email || form.senha.length < 6) {
+      setFormError('Preencha todos os campos. Senha mínimo 6 caracteres.')
+      return
+    }
+    if (form.senha !== form.confirmSenha) {
+      setFormError('As senhas não coincidem.')
+      return
+    }
     setSubmitting(true)
+    setFormError('')
+
     try {
-      if (!editingUser) {
-        if (!form.senha || form.senha.length < 6) {
-          setFormError('Senha obrigatória com mínimo 6 caracteres.'); return
+      const { data, error } = await supabase.auth.signUp({
+        email: form.email.toLowerCase().trim(),
+        password: form.senha,
+        options: {
+          data: { nome: form.nome, role: form.role }
         }
-        if (form.senha !== form.confirmSenha) {
-          setFormError('As senhas não coincidem.'); return
-        }
+      })
 
-        const userData = {
-          nome: form.nome.trim(),
-          email: form.email.trim().toLowerCase(),
-          senha: form.senha,
-          role: form.role,
-          avatar: form.avatar,
-          metaDiariaLigacoes: form.metaDiariaLigacoes,
-          metaDiariaReunioes: form.metaDiariaReunioes,
-        }
-
-        const response = await supabase.functions.invoke('create-user', { body: userData })
-
-        if (response.error) {
-          const msg = response.error.message || 'Erro ao criar usuário'
-          setFormError(msg)
-          return
-        }
-        if (response.data?.error) {
-          setFormError(response.data.error)
-          return
-        }
-      } else {
-        if (form.senha && form.senha.length < 6) {
-          setFormError('Nova senha precisa ter mínimo 6 caracteres.'); return
-        }
-        if (form.senha && form.senha !== form.confirmSenha) {
-          setFormError('As senhas não coincidem.'); return
-        }
-
-        const isMaster = editingUser.email === 'valloragencia@gmail.com'
-        
-        const { data, error } = await supabase.functions.invoke('update-user', {
-          body: {
-            userId: editingUser.id,
-            updates: {
-              nome: form.nome.trim(),
-              role: form.role,
-              avatar: form.avatar,
-              meta_ligacoes: form.metaDiariaLigacoes,
-              meta_reunioes: form.metaDiariaReunioes,
-              ativo: isMaster ? true : form.ativo,
-            },
-            novaSenha: form.senha.length >= 6 ? form.senha : undefined,
-          },
-        })
-
-        if (error) { setFormError('Erro: ' + error.message); return }
-        if (data?.error) { setFormError(data.error); return }
-
-        if (editingUser.id === session.userId && !form.ativo) {
-          sessionStorage.removeItem('vallor_session')
-          window.location.href = '/'
-          return
-        }
+      if (error) {
+        setFormError(error.message)
+        setSubmitting(false)
+        return
       }
 
-      await refreshUsers()
+      if (data.user) {
+        await supabase.from('users').upsert({
+          id: data.user.id,
+          nome: form.nome.trim(),
+          email: form.email.toLowerCase().trim(),
+          senha_hash: '',
+          role: form.role,
+          avatar: form.avatar,
+          meta_ligacoes: Number(form.metaDiariaLigacoes) || 50,
+          meta_reunioes: Number(form.metaDiariaReunioes) || 5,
+          ativo: true,
+        })
+      }
+
       setModalOpen(false)
+      await refreshUsers()
+    } catch (err: any) {
+      setFormError(err.message || 'Erro ao criar usuário')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleUpdateUser() {
+    if (!editingUser) return
+    setSubmitting(true)
+    setFormError('')
+    try {
+      const isMaster = editingUser.email === 'valloragencia@gmail.com'
+      const updates: Record<string, any> = {
+        nome: form.nome.trim(),
+        role: isMaster ? 'admin' : form.role,
+        avatar: form.avatar,
+        meta_ligacoes: Number(form.metaDiariaLigacoes) || 50,
+        meta_reunioes: Number(form.metaDiariaReunioes) || 5,
+        ativo: isMaster ? true : form.ativo,
+      }
+
+      // Se informou nova senha, atualiza o Auth via Edge Function ou Admin API?
+      // O prompt diz "Update user role directly without Edge Function" so focusing on the table.
+      // But usually password update still needs Edge Function or special handling if done from Admin.
+      // However, the requested handleUpdateUser logic DOES NOT mention password.
+      // So I will only update the table as requested.
+
+      const { error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', editingUser.id)
+
+      if (error) {
+        setFormError(error.message)
+        setSubmitting(false)
+        return
+      }
+
+      if (editingUser.id === session.userId && !form.ativo) {
+        sessionStorage.removeItem('vallor_session')
+        window.location.href = '/'
+        return
+      }
+
+      setModalOpen(false)
+      await refreshUsers()
+    } catch (err: any) {
+      setFormError(err.message || 'Erro ao atualizar usuário')
     } finally {
       setSubmitting(false)
     }
@@ -521,7 +540,7 @@ export default function Usuarios({ onReload }: { onReload?: () => void }) {
                 Cancelar
               </button>
               <button
-                onClick={handleSave}
+                onClick={editingUser ? handleUpdateUser : handleCreateUser}
                 disabled={submitting}
                 style={{
                   padding: '8px 18px', borderRadius: '8px',

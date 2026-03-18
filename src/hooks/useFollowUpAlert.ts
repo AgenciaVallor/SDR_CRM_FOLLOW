@@ -16,7 +16,7 @@ export interface FollowUpContact {
 }
 
 export function useFollowUpAlert() {
-  const { currentUser } = useAuth()
+  const { user: currentUser } = useAuth()
   const [contacts, setContacts] = useState<FollowUpContact[]>([])
   const [showAlert, setShowAlert] = useState(false)
 
@@ -28,6 +28,7 @@ export function useFollowUpAlert() {
     if (alreadyShown) return
 
     async function checkFollowUps() {
+      if (!currentUser) return
       const today = format(new Date(), 'yyyy-MM-dd')
 
       const { data } = await supabase
