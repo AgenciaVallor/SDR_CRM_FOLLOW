@@ -191,7 +191,7 @@ export async function getLeads(): Promise<Lead[]> {
 }
 
 export async function getLeadsByOperador(opId: string): Promise<Lead[]> {
-  const { data, error } = await supabase.from('leads').select('*').eq('operadorId', opId)
+  const { data, error } = await supabase.from('leads').select('*').eq('responsavel_id', opId)
   if (error) throw error
   return (data || []).map(mapDbLead)
 }
@@ -358,8 +358,8 @@ function mapDbLead(row: Record<string, unknown>): Lead {
     empresa:       row.empresa as string || '',
     telefone:      row.telefone as string,
     email:         row.email as string || '',
-    valor:         row.valor as number || 0,
-    venc:          row.venc as string || null,
+    valor:         Number(row.valor) || 0,
+    venc:          row.vencimento as string || null,
     responsavelId: row.responsavel_id as string,
     tag:           row.tag as Lead['tag'],
     prioridade:    row.prioridade as Lead['prioridade'],
@@ -382,7 +382,7 @@ function mapLeadToDb(lead: Partial<Lead>): Record<string, unknown> {
   if (lead.telefone)      row.telefone       = lead.telefone
   if (lead.email !== undefined)   row.email   = lead.email
   if (lead.valor !== undefined)   row.valor   = lead.valor
-  if (lead.venc !== undefined)    row.venc    = lead.venc
+  if (lead.venc !== undefined)    row.vencimento = lead.venc
   if (lead.responsavelId) row.responsavel_id = lead.responsavelId
   if (lead.tag)           row.tag            = lead.tag
   if (lead.prioridade)    row.prioridade     = lead.prioridade

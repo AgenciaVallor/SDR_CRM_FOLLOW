@@ -37,11 +37,17 @@ export default function Kanban({ leads, user, isAdmin, onReload }: Props) {
   const [filterResp, setFilterResp] = useState('')
 
   useEffect(() => {
-    Promise.all([getCols(), getUsers()]).then(([c, u]) => {
-      setCols(c.sort((a, b) => a.ordem - b.ordem))
-      setUsers(u)
-      setLoading(false)
-    })
+    Promise.all([getCols(), getUsers()])
+      .then(([c, u]) => {
+        setCols([...c].sort((a, b) => (a.ordem || 0) - (b.ordem || 0)))
+        setUsers(u)
+      })
+      .catch(err => {
+        console.error('[Kanban] Error loading data:', err)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
   }, [])
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
