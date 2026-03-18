@@ -16,6 +16,9 @@ import Sidebar from './components/layout/Sidebar'
 import Topbar from './components/layout/Topbar'
 import CallModal from './components/shared/CallModal'
 import { OnboardingModal } from './components/shared/OnboardingModal'
+import { FollowUpAlertModal } from './components/shared/FollowUpAlertModal'
+
+import { useFollowUpAlert } from './hooks/useFollowUpAlert'
 
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -79,6 +82,7 @@ function AppInner() {
   const { calls, add: addCall, reload: reloadCalls, getTodayStats, getFollowups, loading: callsLoading } = useCalls(currentUser?.id, isAdmin)
   const { leads, add: addLead, update: updateLead, moveColumn, reload: reloadLeads, getPipelineValue, loading: leadsLoading } = useLeads(currentUser?.id, isAdmin)
   const { alerts, checkInactivity } = useAlerts()
+  const { contacts: followupAlertContacts, showAlert: showFollowupAlert, dismiss: dismissFollowupAlert } = useFollowUpAlert()
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -240,6 +244,18 @@ function AppInner() {
         <OnboardingModal
           nomeUsuario={currentUser.nome}
           onConcluir={handleOnboardingConcluir}
+        />
+      )}
+
+      {showFollowupAlert && currentUser && (
+        <FollowUpAlertModal
+          contacts={followupAlertContacts}
+          onDismiss={dismissFollowupAlert}
+          onGoToFollowUp={() => {
+            handleOnboardingConcluir() // ensure onboarding is dismissed if both trigger? or just navigate
+            dismissFollowupAlert()
+            setPage('followup')
+          }}
         />
       )}
     </div>
